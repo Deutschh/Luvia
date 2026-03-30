@@ -2,9 +2,11 @@ import { useRef, useState, useCallback, useEffect } from "react";
 import { useMediaPipe } from "./hooks/useMediaPipe";
 import { recognizeGesture } from "./utils/geometry";
 
+
 function App() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const movementBuffer = useRef({ Left: [], Right: [] });
 
   // Estados independentes para cada mão
   const [leftGesture, setLeftGesture] = useState("Nenhuma");
@@ -35,13 +37,17 @@ function App() {
     let currentRight = "Nenhuma";
 
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-      // Itera sobre as mãos detectadas para processar cada uma separadamente [cite: 6, 73]
       results.multiHandLandmarks.forEach((landmarks, index) => {
-        // Identifica se a mão é Esquerda ou Direita (Handedness)
         const handedness = results.multiHandedness[index].label;
-        const gesture = recognizeGesture(landmarks); // Lógica de geometria [cite: 74, 90]
 
-        // Mapeia o gesto para a mão correta
+        // Adiciona a posição atual do pulso (ponto 0) ao buffer da mão correta
+        const history = movementBuffer.current[handedness];
+        history.push(landmarks[0]);
+        if (history.length > 15) history.shift(); // Mantém apenas os últimos 15 frames
+
+        // Chama o reconhecedor passando o histórico
+        const gesture = recognizeGesture(landmarks, history);
+
         if (handedness === "Left") currentLeft = gesture;
         if (handedness === "Right") currentRight = gesture;
 
@@ -55,6 +61,9 @@ function App() {
           lineWidth: 2,
         });
       });
+    } else {
+      // Limpa buffers se as mãos sumirem
+      movementBuffer.current = { Left: [], Right: [] };
     }
 
     setLeftGesture(currentLeft);
