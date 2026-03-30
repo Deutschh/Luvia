@@ -4,18 +4,18 @@ import { recognizeGesture } from "./utils/geometry";
 
 function App() {
   const videoRef = useRef(null);
-  // CORREÇÃO 1: Declarar a referência do Canvas
   const canvasRef = useRef(null);
-  const [gesture, setGesture] = useState("Aguardando...");
+
+  // Estados independentes para cada mão
+  const [leftGesture, setLeftGesture] = useState("Nenhuma");
+  const [rightGesture, setRightGesture] = useState("Nenhuma");
 
   const onResults = useCallback((results) => {
-    // CORREÇÃO 2: Verificar se o canvasRef existe antes de usar
     if (!canvasRef.current) return;
-
     const canvasCtx = canvasRef.current.getContext("2d");
 
+    // Prepara o Canvas e desenha o frame da câmera [cite: 73, 85]
     canvasCtx.save();
-    // Limpa e desenha o frame atual
     canvasCtx.clearRect(
       0,
       0,
@@ -30,48 +30,54 @@ function App() {
       canvasRef.current.height,
     );
 
+    // Variáveis temporárias para atualizar o estado apenas uma vez por frame
+    let currentLeft = "Nenhuma";
+    let currentRight = "Nenhuma";
+
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-      const landmarks = results.multiHandLandmarks[0];
+      // Itera sobre as mãos detectadas para processar cada uma separadamente [cite: 6, 73]
+      results.multiHandLandmarks.forEach((landmarks, index) => {
+        // Identifica se a mão é Esquerda ou Direita (Handedness)
+        const handedness = results.multiHandedness[index].label;
+        const gesture = recognizeGesture(landmarks); // Lógica de geometria [cite: 74, 90]
 
-      // Identifica o gesto primeiro
-      const detectedGesture = recognizeGesture(landmarks);
+        // Mapeia o gesto para a mão correta
+        if (handedness === "Left") currentLeft = gesture;
+        if (handedness === "Right") currentRight = gesture;
 
-      // Atualiza o estado uma única vez com o resultado final
-      setGesture(detectedGesture);
-
-      // Desenha os conectores para todas as mãos detectadas
-      for (const hand of results.multiHandLandmarks) {
-        window.drawConnectors(canvasCtx, hand, window.HAND_CONNECTIONS, {
-          color: "#00FFFF",
+        // Desenha as conexões e os 21 pontos (landmarks) no canvas [cite: 73, 85]
+        window.drawConnectors(canvasCtx, landmarks, window.HAND_CONNECTIONS, {
+          color: "#00FFFF", // Ciano para o tema Connect Pro
           lineWidth: 5,
         });
-        window.drawLandmarks(canvasCtx, hand, {
+        window.drawLandmarks(canvasCtx, landmarks, {
           color: "#FF0000",
           lineWidth: 2,
         });
-      }
-    } else {
-      setGesture("Nenhuma mão visível");
+      });
     }
+
+    setLeftGesture(currentLeft);
+    setRightGesture(currentRight);
     canvasCtx.restore();
   }, []);
 
-  useEffect(() => {
-    navigator.mediaDevices.enumerateDevices().then((devices) => {
-      const videoDevices = devices.filter((d) => d.kind === "videoinput");
-      console.log("Câmeras encontradas:", videoDevices);
-    });
-  }, []);
-
+  // Hook personalizado para integrar com MediaPipe Hands [cite: 69]
   useMediaPipe(videoRef, onResults);
 
   return (
     <div className="bg-slate-900 h-screen w-full flex flex-col items-center justify-center text-white p-4">
-      <h1 className="text-3xl font-bold mb-4 text-cyan-400">
-        Libras-Connect Vision Core
-      </h1>
+      <header className="mb-6 text-center">
+        <h1 className="text-4xl font-black text-cyan-400 tracking-tighter">
+          Libras-Connect <span className="text-white">Vision Core</span>
+        </h1>
+        <p className="text-slate-400 text-sm">
+          Prova de Conceito (PoC) • Sistema Bimanual
+        </p>
+      </header>
 
-      <div className="relative rounded-lg overflow-hidden border-4 border-cyan-500 shadow-xl shadow-cyan-500/20">
+      {/* Container de Vídeo e Canvas [cite: 73, 85] */}
+      <div className="relative rounded-2xl overflow-hidden border-4 border-cyan-500 shadow-2xl shadow-cyan-500/20">
         <video
           ref={videoRef}
           className="w-full max-w-2xl"
@@ -79,20 +85,29 @@ function App() {
           muted
           playsInline
         />
-        {/* CORREÇÃO 3: Adicionar o elemento Canvas sobre o vídeo */}
         <canvas
           ref={canvasRef}
           className="absolute top-0 left-0 w-full h-full"
-          width={640} // Deve ser o mesmo da configuração da câmera
+          width={640}
           height={480}
         />
       </div>
 
-      <div className="mt-8 p-6 bg-slate-800 rounded-xl w-full max-w-md text-center">
-        <p className="text-slate-400 uppercase text-sm mb-2">
-          Status do Sistema
-        </p>
-        <p className="text-4xl font-black text-white">{gesture}</p>
+      {/* Dashboard de Status (Duplicado para bimanualidade)  */}
+      <div className="mt-8 flex gap-4 w-full max-w-2xl">
+        <div className="flex-1 p-6 bg-slate-800 rounded-2xl border-b-4 border-cyan-500 text-center shadow-lg">
+          <p className="text-slate-400 uppercase text-xs font-bold tracking-widest mb-1">
+            Mão Esquerda
+          </p>
+          <p className="text-4xl font-black text-white">{leftGesture}</p>
+        </div>
+
+        <div className="flex-1 p-6 bg-slate-800 rounded-2xl border-b-4 border-cyan-500 text-center shadow-lg">
+          <p className="text-slate-400 uppercase text-xs font-bold tracking-widest mb-1">
+            Mão Direita
+          </p>
+          <p className="text-4xl font-black text-white">{rightGesture}</p>
+        </div>
       </div>
     </div>
   );

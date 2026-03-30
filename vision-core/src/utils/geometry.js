@@ -27,9 +27,14 @@ export const getFingerStates = (landmarks) => {
 export const recognizeGesture = (landmarks) => {
   const fingers = getFingerStates(landmarks);
 
-  // Lógica da Letra A: Todos os dedos principais fechados [cite: 90, 92]
+  // Lógica da Letra A: Todos os dedos principais fechados [cite: 90]
   if (!fingers.indicador && !fingers.medio && !fingers.anelar && !fingers.minimo) {
     return "Letra A";
+  }
+
+  // Lógica da Letra B: Quatro dedos estendidos e polegar dobrado [cite: 91]
+  if (fingers.indicador && fingers.medio && fingers.anelar && fingers.minimo && !fingers.polegar) {
+    return "Letra B";
   }
 
   return "Mão Detectada";
