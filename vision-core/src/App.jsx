@@ -10,10 +10,15 @@ function App() {
   const [leftGesture, setLeftGesture] = useState("Nenhuma");
   const [rightGesture, setRightGesture] = useState("Nenhuma");
   const [history, setHistory] = useState([]);
+  const [progress, setProgress] = useState({ Left: 0, Right: 0 });
+  const gestureCounters = useRef({ Left: 0, Right: 0 });
+  const currentActiveGestures = useRef({ Left: "", Right: "" });
 
   const movementBuffer = useRef({ Left: [], Right: [] });
   const lastSpoken = useRef({ Left: "", Right: "" });
   const speechCooldown = useRef(false);
+
+  const CONFIRMATION_THRESHOLD = 20;
 
   const onResults = useCallback((results) => {
     if (!canvasRef.current) return;
@@ -34,6 +39,7 @@ function App() {
       canvasRef.current.height,
     );
 
+    let newProgress = { Left: 0, Right: 0 };
     let currentLeft = "Nenhuma";
     let currentRight = "Nenhuma";
 
@@ -41,43 +47,71 @@ function App() {
       results.multiHandLandmarks.forEach((landmarks, index) => {
         const handedness = results.multiHandedness[index].label;
 
+        // --- ADICIONE ESTAS 3 LINHAS AQUI ---
         const history = movementBuffer.current[handedness];
-        history.push(landmarks[0]);
-        if (history.length > 15) history.shift();
+        history.push(landmarks[20]); // Salva a ponta do dedinho (ponto 20) para o "Oi!"
+        if (history.length > 15) history.shift(); // Mantém apenas os últimos 15 frames
+        // ------------------------------------
 
-        const gesture = recognizeGesture(landmarks, history);
+        const detectedGesture = recognizeGesture(
+          landmarks,
+          history, // Agora passamos a variável 'history' que acabamos de atualizar
+        );
 
-        if (gesture !== "Nenhuma" && gesture !== "Mão Detectada") {
-          const isNewGesture = gesture !== lastSpoken.current[handedness];
+        const isDynamicGesture = detectedGesture.includes("!");
+        // Lógica da Barra de Carregamento
+        if (
+          detectedGesture !== "Nenhuma" &&
+          detectedGesture !== "Mão Detectada"
+        ) {
+          if (isDynamicGesture) {
+            // DISPARO IMEDIATO para gestos dinâmicos
+            if (
+              detectedGesture !== lastSpoken.current[handedness] &&
+              !speechCooldown.current
+            ) {
+              speak(detectedGesture);
+              lastSpoken.current[handedness] = detectedGesture;
+              addToHistory(detectedGesture, handedness); // Criaremos essa função auxiliar
 
-          if (isNewGesture && !speechCooldown.current) {
-            speak(gesture);
-            lastSpoken.current[handedness] = gesture;
+              speechCooldown.current = true;
+              setTimeout(() => {
+                speechCooldown.current = false;
+              }, 1000);
+            }
+            // Reseta o progresso para não bugar a barra
+            gestureCounters.current[handedness] = 0;
+            newProgress[handedness] = 0;
+          } else {
+            // LÓGICA DE CARREGAMENTO para gestos estáticos (A, B, L, etc.)
+            if (detectedGesture === currentActiveGestures.current[handedness]) {
+              gestureCounters.current[handedness]++;
+            } else {
+              gestureCounters.current[handedness] = 0;
+              currentActiveGestures.current[handedness] = detectedGesture;
+            }
 
-            setHistory((prev) =>
-              [
-                {
-                  id: Date.now(),
-                  text: gesture,
-                  hand: handedness === "Left" ? "Esq" : "Dir",
-                  time: new Date().toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  }),
-                },
-                ...prev,
-              ].slice(0, 5),
-            ); // Mantém os últimos 5 para o novo layout
+            newProgress[handedness] = Math.min(
+              (gestureCounters.current[handedness] / CONFIRMATION_THRESHOLD) *
+                100,
+              100,
+            );
 
-            speechCooldown.current = true;
-            setTimeout(() => {
-              speechCooldown.current = false;
-            }, 1500);
+            if (
+              gestureCounters.current[handedness] === CONFIRMATION_THRESHOLD
+            ) {
+              speak(detectedGesture);
+              addToHistory(detectedGesture, handedness);
+            }
           }
+        } else {
+          gestureCounters.current[handedness] = 0;
+          currentActiveGestures.current[handedness] = "";
         }
 
-        if (handedness === "Left") currentLeft = gesture;
-        if (handedness === "Right") currentRight = gesture;
+        // Atribui o gesto para exibição visual imediata (opcional, ou pode mostrar apenas o confirmado)
+        if (handedness === "Left") currentLeft = detectedGesture;
+        if (handedness === "Right") currentRight = detectedGesture;
 
         // Desenho dos landmarks com roxo médio
         window.drawConnectors(canvasCtx, landmarks, window.HAND_CONNECTIONS, {
@@ -91,14 +125,32 @@ function App() {
         }); // Red-500
       });
     } else {
-      movementBuffer.current = { Left: [], Right: [] };
-      lastSpoken.current = { Left: "", Right: "" };
+      gestureCounters.current = { Left: 0, Right: 0 };
+      currentActiveGestures.current = { Left: "", Right: "" };
     }
 
+    setProgress(newProgress);
     setLeftGesture(currentLeft);
     setRightGesture(currentRight);
     canvasCtx.restore();
   }, []);
+
+  const addToHistory = (text, handedness) => {
+    setHistory((prev) =>
+      [
+        {
+          id: Date.now(),
+          text: text,
+          hand: handedness === "Left" ? "Esq" : "Dir",
+          time: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        },
+        ...prev,
+      ].slice(0, 5),
+    );
+  };
 
   useMediaPipe(videoRef, onResults);
 
@@ -146,6 +198,12 @@ function App() {
               <h2 className="text-3xl font-black text-slate-950">
                 {leftGesture === "Nenhuma" ? "---" : leftGesture}
               </h2>
+              <div className="absolute bottom-0 left-0 h-1 bg-slate-100 w-full">
+                <div
+                  className="h-full bg-purple-600 transition-all duration-75"
+                  style={{ width: `${progress.Left}%` }}
+                />
+              </div>
             </div>
             <div className="flex-1 p-5 bg-white rounded-2xl border border-slate-200 shadow-sm transition-all">
               <p className="text-purple-600 font-bold tracking-widest text-[10px] mb-1">
@@ -154,6 +212,12 @@ function App() {
               <h2 className="text-3xl font-black text-slate-950">
                 {rightGesture === "Nenhuma" ? "---" : rightGesture}
               </h2>
+              <div className="absolute bottom-0 left-0 h-1 bg-slate-100 w-full">
+                <div
+                  className="h-full bg-purple-600 transition-all duration-75"
+                  style={{ width: `${progress.Right}%` }}
+                />
+              </div>
             </div>
           </div>
 

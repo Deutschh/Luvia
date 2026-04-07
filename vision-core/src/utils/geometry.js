@@ -84,10 +84,18 @@ export const recognizeGesture = (landmarks, movementHistory = []) => {
   // 7. Letra I / Sinal "Oi" (Já temos)
   const isLetterI =
     !fingers.indicador && !fingers.medio && !fingers.anelar && fingers.minimo;
+
   if (isLetterI) {
-    if (movementHistory.length > 5) {
+    // Aumentamos a verificação para 10 frames de histórico para ter mais dados
+    if (movementHistory.length > 10) {
       const xPositions = movementHistory.map((p) => p.x);
-      if (Math.max(...xPositions) - Math.min(...xPositions) > 0.1) return "Oi!";
+      const minX = Math.min(...xPositions);
+      const maxX = Math.max(...xPositions);
+
+      // Threshold de 0.04 rastreando a PONTA do dedo (ponto 20) é perfeito
+      if (maxX - minX > 0.04) {
+        return "Oi!";
+      }
     }
     return "Letra I";
   }
