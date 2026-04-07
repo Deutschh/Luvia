@@ -3,177 +3,196 @@ import { useMediaPipe } from "./hooks/useMediaPipe";
 import { recognizeGesture, checkBimanualGesture } from "./utils/geometry";
 import { speak } from "./services/speech";
 
+// Dados do dicionário para consulta do usuário
+const GESTURE_DICTIONARY = [
+  {
+    name: "Letra A",
+    type: "Estático",
+    desc: "Feche a mão com o polegar ao lado do indicador.",
+  },
+  {
+    name: "Letra B",
+    type: "Estático",
+    desc: "Mão aberta, quatro dedos juntos e polegar dobrado na palma.",
+  },
+  {
+    name: "Letra L",
+    type: "Estático",
+    desc: "Estique apenas o polegar e o indicador formando um 'L'.",
+  },
+  {
+    name: "Oi!",
+    type: "Dinâmico",
+    desc: "Faça a letra 'I' (dedinho) e balance a mão lateralmente.",
+  },
+  {
+    name: "Casa",
+    type: "Bimanual",
+    desc: "Una as pontas dos dedos das duas mãos abertas em formato de telhado.",
+  },
+];
+
 function App() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
+  // Estados de Interface
+  const [isMirrored, setIsMirrored] = useState(true);
+  const [selectedGestureInfo, setSelectedGestureInfo] = useState(null);
+
+  // Estados de Tradução
   const [leftGesture, setLeftGesture] = useState("Nenhuma");
   const [rightGesture, setRightGesture] = useState("Nenhuma");
   const [history, setHistory] = useState([]);
   const [progress, setProgress] = useState({ Left: 0, Right: 0 });
+
   const gestureCounters = useRef({ Left: 0, Right: 0 });
   const currentActiveGestures = useRef({ Left: "", Right: "" });
-
   const movementBuffer = useRef({ Left: [], Right: [] });
   const lastSpoken = useRef({ Left: "", Right: "" });
   const speechCooldown = useRef(false);
 
   const CONFIRMATION_THRESHOLD = 20;
 
-  const onResults = useCallback((results) => {
-    if (!canvasRef.current) return;
-    const canvasCtx = canvasRef.current.getContext("2d");
+  const onResults = useCallback(
+    (results) => {
+      if (!canvasRef.current) return;
+      const canvasCtx = canvasRef.current.getContext("2d");
 
-    canvasCtx.save();
-    canvasCtx.clearRect(
-      0,
-      0,
-      canvasRef.current.width,
-      canvasRef.current.height,
-    );
-    canvasCtx.drawImage(
-      results.image,
-      0,
-      0,
-      canvasRef.current.width,
-      canvasRef.current.height,
-    );
-
-    let newProgress = { Left: 0, Right: 0 };
-    let currentLeft = "Nenhuma";
-    let currentRight = "Nenhuma";
-    let landmarksByHand = { Left: null, Right: null };
-
-    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-      results.multiHandLandmarks.forEach((landmarks, index) => {
-        const handedness = results.multiHandedness[index].label;
-        landmarksByHand[handedness] = landmarks;
-
-        // --- ADICIONE ESTAS 3 LINHAS AQUI ---
-        const history = movementBuffer.current[handedness];
-        history.push(landmarks[20]); // Salva a ponta do dedinho (ponto 20) para o "Oi!"
-        if (history.length > 15) history.shift(); // Mantém apenas os últimos 15 frames
-        // ------------------------------------
-
-        const detectedGesture = recognizeGesture(
-          landmarks,
-          history, // Agora passamos a variável 'history' que acabamos de atualizar
-        );
-
-        const isDynamicGesture = detectedGesture.includes("!");
-        // Lógica da Barra de Carregamento
-        if (
-          detectedGesture !== "Nenhuma" &&
-          detectedGesture !== "Mão Detectada"
-        ) {
-          if (isDynamicGesture) {
-            // DISPARO IMEDIATO para gestos dinâmicos
-            if (
-              detectedGesture !== lastSpoken.current[handedness] &&
-              !speechCooldown.current
-            ) {
-              speak(detectedGesture);
-              lastSpoken.current[handedness] = detectedGesture;
-              addToHistory(detectedGesture, handedness); // Criaremos essa função auxiliar
-
-              speechCooldown.current = true;
-              setTimeout(() => {
-                speechCooldown.current = false;
-              }, 1000);
-            }
-            // Reseta o progresso para não bugar a barra
-            gestureCounters.current[handedness] = 0;
-            newProgress[handedness] = 0;
-          } else {
-            // LÓGICA DE CARREGAMENTO para gestos estáticos (A, B, L, etc.)
-            if (detectedGesture === currentActiveGestures.current[handedness]) {
-              gestureCounters.current[handedness]++;
-            } else {
-              gestureCounters.current[handedness] = 0;
-              currentActiveGestures.current[handedness] = detectedGesture;
-            }
-
-            newProgress[handedness] = Math.min(
-              (gestureCounters.current[handedness] / CONFIRMATION_THRESHOLD) *
-                100,
-              100,
-            );
-
-            if (
-              gestureCounters.current[handedness] === CONFIRMATION_THRESHOLD
-            ) {
-              speak(detectedGesture);
-              addToHistory(detectedGesture, handedness);
-            }
-          }
-        } else {
-          gestureCounters.current[handedness] = 0;
-          currentActiveGestures.current[handedness] = "";
-        }
-
-        // Atribui o gesto para exibição visual imediata (opcional, ou pode mostrar apenas o confirmado)
-        if (handedness === "Left") currentLeft = detectedGesture;
-        if (handedness === "Right") currentRight = detectedGesture;
-
-        // Desenho dos landmarks com roxo médio
-        window.drawConnectors(canvasCtx, landmarks, window.HAND_CONNECTIONS, {
-          color: "#7E22CE",
-          lineWidth: 4,
-        }); // Purple-700
-        window.drawLandmarks(canvasCtx, landmarks, {
-          color: "#f9fafb",
-          lineWidth: 1,
-          radius: 3,
-        }); // Red-500
-      });
-    } else {
-      gestureCounters.current = { Left: 0, Right: 0 };
-      currentActiveGestures.current = { Left: "", Right: "" };
-    }
-
-    const bimanualResult = checkBimanualGesture(
-      landmarksByHand.Left,
-      landmarksByHand.Right,
-    );
-
-    if (bimanualResult === "Casa") {
-      // Se for Casa, sobrepomos o status das duas mãos
-      currentLeft = "Casa";
-      currentRight = "Casa";
-
-      // Aumentamos o contador de progresso de ambas simultaneamente
-      gestureCounters.current.Left++;
-      gestureCounters.current.Right++;
-
-      newProgress.Left = Math.min(
-        (gestureCounters.current.Left / CONFIRMATION_THRESHOLD) * 100,
-        100,
-      );
-      newProgress.Right = Math.min(
-        (gestureCounters.current.Right / CONFIRMATION_THRESHOLD) * 100,
-        100,
+      canvasCtx.save();
+      canvasCtx.clearRect(
+        0,
+        0,
+        canvasRef.current.width,
+        canvasRef.current.height,
       );
 
-      // Se confirmou a barra, fala "Casa"
-      if (gestureCounters.current.Left === CONFIRMATION_THRESHOLD) {
-        speak("Casa");
-        addToHistory("Casa", "Ambas");
+      // Aplica espelhamento no desenho se o estado estiver ativo
+      if (isMirrored) {
+        canvasCtx.translate(canvasRef.current.width, 0);
+        canvasCtx.scale(-1, 1);
       }
-    }
 
-    setProgress(newProgress);
-    setLeftGesture(currentLeft);
-    setRightGesture(currentRight);
-    canvasCtx.restore();
-  }, []);
+      canvasCtx.drawImage(
+        results.image,
+        0,
+        0,
+        canvasRef.current.width,
+        canvasRef.current.height,
+      );
 
-  const addToHistory = (text, handedness) => {
+      let newProgress = { Left: 0, Right: 0 };
+      let currentLeft = "Nenhuma";
+      let currentRight = "Nenhuma";
+      let landmarksByHand = { Left: null, Right: null };
+
+      if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        results.multiHandLandmarks.forEach((landmarks, index) => {
+          const handedness = results.multiHandedness[index].label;
+          landmarksByHand[handedness] = landmarks;
+
+          const history = movementBuffer.current[handedness];
+          history.push(landmarks[20]);
+          if (history.length > 15) history.shift();
+
+          const detectedGesture = recognizeGesture(landmarks, history);
+          const isDynamicGesture = detectedGesture.includes("!");
+
+          if (
+            detectedGesture !== "Nenhuma" &&
+            detectedGesture !== "Mão Detectada"
+          ) {
+            if (isDynamicGesture) {
+              if (
+                detectedGesture !== lastSpoken.current[handedness] &&
+                !speechCooldown.current
+              ) {
+                speak(detectedGesture);
+                lastSpoken.current[handedness] = detectedGesture;
+                addToHistory(detectedGesture, handedness);
+                speechCooldown.current = true;
+                setTimeout(() => {
+                  speechCooldown.current = false;
+                }, 1000);
+              }
+              newProgress[handedness] = 0;
+            } else {
+              if (
+                detectedGesture === currentActiveGestures.current[handedness]
+              ) {
+                gestureCounters.current[handedness]++;
+              } else {
+                gestureCounters.current[handedness] = 0;
+                currentActiveGestures.current[handedness] = detectedGesture;
+              }
+              newProgress[handedness] = Math.min(
+                (gestureCounters.current[handedness] / CONFIRMATION_THRESHOLD) *
+                  100,
+                100,
+              );
+              if (
+                gestureCounters.current[handedness] === CONFIRMATION_THRESHOLD
+              ) {
+                speak(detectedGesture);
+                addToHistory(detectedGesture, handedness);
+              }
+            }
+          } else {
+            gestureCounters.current[handedness] = 0;
+          }
+
+          if (handedness === "Left") currentLeft = detectedGesture;
+          if (handedness === "Right") currentRight = detectedGesture;
+
+          // Desenho com a cor Luvia (Azul Royal)
+          window.drawConnectors(canvasCtx, landmarks, window.HAND_CONNECTIONS, {
+            color: "#0066FF",
+            lineWidth: 4,
+          });
+          window.drawLandmarks(canvasCtx, landmarks, {
+            color: "#FFFFFF",
+            lineWidth: 1,
+            radius: 3,
+          });
+        });
+
+        const bimanualResult = checkBimanualGesture(
+          landmarksByHand.Left,
+          landmarksByHand.Right,
+        );
+        if (bimanualResult === "Casa") {
+          currentLeft = "Casa";
+          currentRight = "Casa";
+          gestureCounters.current.Left++;
+          gestureCounters.current.Right++;
+          const prog = Math.min(
+            (gestureCounters.current.Left / CONFIRMATION_THRESHOLD) * 100,
+            100,
+          );
+          newProgress.Left = prog;
+          newProgress.Right = prog;
+          if (gestureCounters.current.Left === CONFIRMATION_THRESHOLD) {
+            speak("Casa");
+            addToHistory("Casa", "Ambas");
+          }
+        }
+      }
+
+      setProgress(newProgress);
+      setLeftGesture(currentLeft);
+      setRightGesture(currentRight);
+      canvasCtx.restore();
+    },
+    [isMirrored],
+  );
+
+  const addToHistory = (text, hand) => {
     setHistory((prev) =>
       [
         {
           id: Date.now(),
-          text: text,
-          hand: handedness === "Left" ? "Esq" : "Dir",
+          text,
+          hand,
           time: new Date().toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
@@ -187,121 +206,163 @@ function App() {
   useMediaPipe(videoRef, onResults);
 
   return (
-    <div className="bg-slate-50 h-screen w-full flex flex-col items-center p-4 font-sans text-slate-900">
-      <header className="mb-6 text-center w-full max-w-7xl">
-        <h1 className="text-3xl font-black text-purple-700 tracking-tighter uppercase italic">
-          Vision <span className="text-slate-900 font-bold">Core</span>
-        </h1>
-        <p className="text-slate-600 text-xs font-mono tracking-widest">
-          Connect Pro • Bimanual PoC
-        </p>
+    <div className="bg-[#F2F4F7] min-h-screen w-full flex flex-col items-center p-6 font-sans text-[#1D2939]">
+      {/* Header Estilo Luvia */}
+      <header className="w-full max-w-6xl flex justify-between items-center mb-8">
+        <div className="flex items-center gap-2">
+          <div className="w-10 h-10 bg-[#0066FF] rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
+            <span className="text-white font-bold text-xl">L</span>
+          </div>
+          <h1 className="text-3xl font-extrabold text-[#0066FF] tracking-tight">
+            luvia
+          </h1>
+        </div>
+        <button
+          onClick={() => setIsMirrored(!isMirrored)}
+          className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 hover:bg-slate-50 transition-all flex items-center gap-2 text-sm font-semibold"
+        >
+          {isMirrored ? "🔄 Normal" : "🪞 Espelhar"}
+        </button>
       </header>
 
-      {/* Grid Principal: Câmera à Esquerda, Status e Log à Direita */}
-      <main className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-7xl flex-grow overflow-hidden">
-        {/* CORREÇÃO DE ALTURA: Viewport de Vídeo com min-h- */}
-        <div className="md:col-span-2 relative rounded-3xl overflow-hidden border-2 border-slate-200 shadow-lg min-h-[450px] bg-slate-100">
-          <video
-            ref={videoRef}
-            className="w-full h-full object-cover"
-            autoPlay
-            muted
-            playsInline
-          />
-          <canvas
-            ref={canvasRef}
-            className="absolute top-0 left-0 w-full h-full"
-            width={640}
-            height={480}
-          />
-          <div className="absolute top-4 left-4 bg-white/70 px-3 py-1 rounded-full text-xs font-bold text-purple-800 backdrop-blur-sm">
-            Live
+      <main className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full max-w-6xl">
+        {/* Coluna Esquerda: Câmera e Dicionário */}
+        <div className="lg:col-span-8 flex flex-col gap-6">
+          {/* Container da Câmera */}
+          <div className="relative rounded-[2.5rem] overflow-hidden bg-white shadow-xl shadow-slate-200/50 border-8 border-white min-h-[480px]">
+            <video
+              ref={videoRef}
+              style={{ transform: isMirrored ? "scaleX(-1)" : "none" }}
+              className="w-full h-full object-cover"
+              autoPlay
+              muted
+              playsInline
+            />
+            <canvas
+              ref={canvasRef}
+              className="absolute top-0 left-0 w-full h-full"
+              width={640}
+              height={480}
+            />
+            <div className="absolute top-6 left-6 bg-blue-600/90 text-white px-4 py-1.5 rounded-full text-xs font-bold backdrop-blur-sm shadow-lg">
+              SISTEMA ATIVO
+            </div>
           </div>
+
+          {/* Dicionário Interativo */}
+          <section className="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-50">
+            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <span className="text-blue-600">📚</span> Dicionário de Gestos
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {GESTURE_DICTIONARY.map((g) => (
+                <div
+                  key={g.name}
+                  onMouseEnter={() => setSelectedGestureInfo(g)}
+                  onClick={() => setSelectedGestureInfo(g)}
+                  className="p-4 rounded-2xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/50 transition-all cursor-help group"
+                >
+                  <p className="font-bold text-sm group-hover:text-blue-600">
+                    {g.name}
+                  </p>
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wider">
+                    {g.type}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {selectedGestureInfo && (
+              <div className="mt-4 p-4 bg-blue-50 rounded-2xl border border-blue-100 animate-in fade-in slide-in-from-top-2">
+                <p className="text-sm text-blue-800">
+                  <span className="font-bold">Como fazer:</span>{" "}
+                  {selectedGestureInfo.desc}
+                </p>
+              </div>
+            )}
+          </section>
         </div>
 
-        {/* Coluna de Status e Log */}
-        <aside className="flex flex-col gap-6 overflow-hidden">
-          {/* Dashboard de Tradução Bimanual */}
-          <div className="flex gap-4">
-            <div className="flex-1 p-5 bg-white rounded-2xl border border-slate-200 shadow-sm transition-all">
-              <p className="text-purple-600 font-bold tracking-widest text-[10px] mb-1">
-                ESQUERDA
-              </p>
-              <h2 className="text-3xl font-black text-slate-950">
-                {leftGesture === "Nenhuma" ? "---" : leftGesture}
-              </h2>
-              <div className="absolute bottom-0 left-0 h-1 bg-slate-100 w-full">
-                <div
-                  className="h-full bg-purple-600 transition-all duration-75"
-                  style={{ width: `${progress.Left}%` }}
-                />
+        {/* Coluna Direita: Status e Histórico */}
+        <div className="lg:col-span-4 flex flex-col gap-6">
+          {/* Status Bimanual (Baseado nos Círculos do Wireframe) */}
+          <div className="grid grid-cols-2 gap-4">
+            {[
+              { label: "ESQUERDA", val: leftGesture, prog: progress.Left },
+              { label: "DIREITA", val: rightGesture, prog: progress.Right },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-50 flex flex-col items-center text-center relative overflow-hidden"
+              >
+                <p className="text-[10px] font-black text-slate-400 tracking-widest mb-2">
+                  {item.label}
+                </p>
+                <h2 className="text-2xl font-black text-blue-600 truncate w-full">
+                  {item.val === "Nenhuma" ? "---" : item.val}
+                </h2>
+                <div className="absolute bottom-0 left-0 h-1.5 bg-slate-100 w-full">
+                  <div
+                    className="h-full bg-blue-600 transition-all duration-150"
+                    style={{ width: `${item.prog}%` }}
+                  />
+                </div>
               </div>
-            </div>
-            <div className="flex-1 p-5 bg-white rounded-2xl border border-slate-200 shadow-sm transition-all">
-              <p className="text-purple-600 font-bold tracking-widest text-[10px] mb-1">
-                DIREITA
-              </p>
-              <h2 className="text-3xl font-black text-slate-950">
-                {rightGesture === "Nenhuma" ? "---" : rightGesture}
-              </h2>
-              <div className="absolute bottom-0 left-0 h-1 bg-slate-100 w-full">
-                <div
-                  className="h-full bg-purple-600 transition-all duration-75"
-                  style={{ width: `${progress.Right}%` }}
-                />
-              </div>
-            </div>
+            ))}
           </div>
 
-          {/* Log de Tradução (Histórico) */}
-          <div className="flex-grow bg-white rounded-3xl p-6 border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="text-purple-600 font-bold tracking-widest text-xs uppercase">
-                Histórico de Conversa
-              </h3>
+          {/* Histórico "Luvia Style" */}
+          <section className="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-50 flex-grow">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-bold text-slate-800">Últimas Frases</h3>
               <button
                 onClick={() => setHistory([])}
-                className="text-slate-400 hover:text-red-500 text-xs transition-colors"
+                className="text-xs text-slate-400 hover:text-red-500 transition-colors"
               >
                 Limpar
               </button>
             </div>
-
-            <div className="space-y-2 flex-grow overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200">
+            <div className="space-y-4">
               {history.length === 0 ? (
-                <p className="text-slate-400 text-sm italic text-center py-4">
-                  Nenhuma tradução recente...
-                </p>
+                <div className="text-center py-10">
+                  <div className="text-4xl mb-2 opacity-20">💬</div>
+                  <p className="text-slate-400 text-sm italic">
+                    Aguardando sinais...
+                  </p>
+                </div>
               ) : (
                 history.map((item) => (
                   <div
                     key={item.id}
-                    className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100/50"
+                    className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex justify-between items-center"
                   >
-                    <span className="flex items-center gap-2">
-                      <span
-                        className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${item.hand === "Esq" ? "bg-purple-100 text-purple-700" : "bg-purple-100 text-purple-700"}`}
-                      >
-                        {item.hand}
-                      </span>
-                      <span className="text-slate-950 font-medium">
+                    <div>
+                      <p className="text-blue-600 text-xs font-bold mb-1">
+                        {item.hand === "Ambas"
+                          ? "🙌 BIMANUAL"
+                          : `🧤 MÃO ${item.hand.toUpperCase()}`}
+                      </p>
+                      <p className="text-lg font-bold text-slate-900">
                         {item.text}
-                      </span>
-                    </span>
-                    <span className="text-slate-400 text-[10px] font-mono">
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-400">
                       {item.time}
                     </span>
                   </div>
                 ))
               )}
             </div>
-          </div>
-        </aside>
-      </main>
+          </section>
 
-      <footer className="mt-8 text-slate-400 text-xs uppercase tracking-widest border-t border-slate-100 w-full max-w-7xl pt-4 text-center">
-        Identidade Vocal Ativa • PoC System Connect Pro
-      </footer>
+          {/* Footer/Nav do App Adaptado */}
+          <nav className="bg-white p-4 rounded-full shadow-sm border border-slate-50 flex justify-around items-center">
+            <button className="text-blue-600 text-xl">🏠</button>
+            <button className="text-slate-300 text-xl">📖</button>
+            <button className="text-slate-300 text-xl">🧤</button>
+            <button className="text-slate-300 text-xl">⚙️</button>
+          </nav>
+        </div>
+      </main>
     </div>
   );
 }
