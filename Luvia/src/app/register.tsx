@@ -1,89 +1,384 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from 'react-native';
 import { router } from 'expo-router';
-import { AppButton } from '../components/AppButton';
-import { AppInput } from '../components/AppInput';
-import { colors } from '../theme/colors';
+import { StatusBar } from 'expo-status-bar';
+
+const BLUE = '#0A6DFF';
+const TEXT = '#111827';
+const MUTED = '#7A7A7A';
+const BORDER = '#C9CED6';
+const SOFT = '#EEF0F3';
 
 export default function RegisterScreen() {
+  const [rememberMe, setRememberMe] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+
   function handleRegister() {
     router.push('/home');
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Criar conta</Text>
+    <KeyboardAvoidingView
+      style={styles.safeArea}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <StatusBar style="dark" />
 
-      <Text style={styles.subtitle}>
-        Crie seu perfil para salvar palavras, configurar voz e sincronizar seus
-        dados com segurança.
-      </Text>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            activeOpacity={0.75}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.backIcon}>‹</Text>
+          </TouchableOpacity>
 
-      <AppInput placeholder="Nome completo" />
+          <Image
+            source={require('../../assets/images/Luvia/Logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </View>
 
-      <AppInput
-        placeholder="E-mail"
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
+        <View style={styles.tabWrapper}>
+          <TouchableOpacity
+            style={styles.tabInactive}
+            activeOpacity={0.85}
+            onPress={() => router.replace('/login')}
+          >
+            <Text style={styles.tabInactiveText}>Login</Text>
+          </TouchableOpacity>
 
-      <AppInput
-        placeholder="Senha"
-        secureTextEntry
-      />
+          <TouchableOpacity style={styles.tabActive} activeOpacity={0.85}>
+            <Text style={styles.tabActiveText}>Cadastre-se</Text>
+          </TouchableOpacity>
+        </View>
 
-      <AppInput
-        placeholder="Confirmar senha"
-        secureTextEntry
-      />
+        <TouchableOpacity style={styles.googleButton} activeOpacity={0.85}>
+          <Text style={styles.googleIcon}>G</Text>
+          <Text style={styles.googleText}>Entrar com Google</Text>
+        </TouchableOpacity>
 
-      <AppButton
-        title="Criar conta"
-        onPress={handleRegister}
-      />
+        <View style={styles.dividerWrapper}>
+          <View style={styles.divider} />
+          <Text style={styles.dividerText}>ou</Text>
+          <View style={styles.divider} />
+        </View>
 
-      <TouchableOpacity onPress={() => router.push('/login')}>
-        <Text style={styles.link}>
-          Já tenho uma conta
-        </Text>
-      </TouchableOpacity>
+        <View style={styles.form}>
+          <Text style={styles.label}>Nome</Text>
 
-      <TouchableOpacity onPress={() => router.back()}>
-        <Text style={styles.back}>
-          Voltar
-        </Text>
-      </TouchableOpacity>
-    </View>
+          <View style={styles.inputWrapper}>
+            <Text style={styles.inputIcon}>✎</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Insira seu nome"
+              placeholderTextColor="#9CA3AF"
+            />
+          </View>
+
+          <Text style={styles.label}>Celular</Text>
+
+          <View style={styles.inputWrapper}>
+            <Text style={styles.inputIcon}>☏</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Insira seu número de telefone"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="phone-pad"
+            />
+          </View>
+
+          <Text style={styles.label}>Email</Text>
+
+          <View style={styles.inputWrapper}>
+            <Text style={styles.inputIcon}>✉</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Insira seu email"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          </View>
+
+          <Text style={styles.label}>Senha</Text>
+
+          <View style={styles.inputWrapper}>
+            <Text style={styles.inputIcon}>▣</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Insira sua senha"
+              placeholderTextColor="#9CA3AF"
+              secureTextEntry={!showPassword}
+            />
+
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setShowPassword((current) => !current)}
+            >
+              <Text style={styles.eyeIcon}>◉</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            style={styles.rememberWrapper}
+            activeOpacity={0.75}
+            onPress={() => setRememberMe((current) => !current)}
+          >
+            <View style={[styles.checkbox, rememberMe && styles.checkboxActive]}>
+              {rememberMe && <Text style={styles.checkText}>✓</Text>}
+            </View>
+
+            <Text style={styles.rememberText}>Lembrar-me</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={styles.mainButton}
+            activeOpacity={0.85}
+            onPress={handleRegister}
+          >
+            <Text style={styles.mainButtonText}>Cadastrar-se</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
-    padding: 24,
+    backgroundColor: '#FFFFFF',
+  },
+
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 34,
+    paddingTop: 70,
+    paddingBottom: 34,
+  },
+
+  header: {
+    alignItems: 'center',
+    marginBottom: 34,
+  },
+
+  backButton: {
+    position: 'absolute',
+    left: 0,
+    top: 4,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
+  },
+
+  backIcon: {
+    color: BLUE,
+    fontSize: 38,
+    lineHeight: 40,
+    marginTop: -2,
+  },
+
+  logo: {
+    width: 130,
+    height: 58,
+  },
+
+  tabWrapper: {
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: SOFT,
+    flexDirection: 'row',
+    padding: 3,
+    marginBottom: 76,
+  },
+
+  tabActive: {
+    flex: 1,
+    backgroundColor: BLUE,
+    borderRadius: 22,
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  title: {
-    color: colors.text,
-    fontSize: 32,
+
+  tabInactive: {
+    flex: 1,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  tabActiveText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  tabInactiveText: {
+    color: BLUE,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  googleButton: {
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 1.5,
+    borderColor: BORDER,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    marginBottom: 34,
+  },
+
+  googleIcon: {
+    color: '#4285F4',
+    fontSize: 22,
     fontWeight: '800',
-    marginBottom: 10,
+    marginRight: 18,
   },
-  subtitle: {
-    color: colors.textMuted,
+
+  googleText: {
+    color: MUTED,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+
+  dividerWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 36,
+  },
+
+  divider: {
+    flex: 1,
+    height: 1.3,
+    backgroundColor: '#AEB4BE',
+  },
+
+  dividerText: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    marginHorizontal: 18,
+  },
+
+  form: {
+    width: '100%',
+  },
+
+  label: {
+    color: MUTED,
+    fontSize: 13,
+    marginLeft: 8,
+    marginBottom: 8,
+  },
+
+  inputWrapper: {
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1.5,
+    borderColor: BORDER,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    marginBottom: 18,
+  },
+
+  inputIcon: {
+    color: '#6B7280',
+    fontSize: 16,
+    marginRight: 12,
+    width: 20,
+    textAlign: 'center',
+  },
+
+  input: {
+    flex: 1,
+    height: '100%',
+    color: TEXT,
+    fontSize: 12.5,
+  },
+
+  eyeIcon: {
+    color: '#6B7280',
+    fontSize: 17,
+    marginLeft: 8,
+  },
+
+  rememberWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: -2,
+  },
+
+  checkbox: {
+    width: 17,
+    height: 17,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: BLUE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+
+  checkboxActive: {
+    backgroundColor: BLUE,
+  },
+
+  checkText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+
+  rememberText: {
+    color: MUTED,
+    fontSize: 12,
+  },
+
+  footer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    paddingTop: 36,
+  },
+
+  mainButton: {
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: BLUE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  mainButtonText: {
+    color: '#FFFFFF',
     fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 20,
-  },
-  link: {
-    color: colors.primary,
-    textAlign: 'center',
-    marginTop: 22,
-    fontWeight: '700',
-  },
-  back: {
-    color: colors.textMuted,
-    textAlign: 'center',
-    marginTop: 18,
+    fontWeight: '600',
   },
 });
