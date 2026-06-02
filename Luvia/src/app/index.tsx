@@ -9,6 +9,7 @@ import {
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
+
 const { width } = Dimensions.get('window');
 
 export default function SplashScreen() {
@@ -55,7 +56,7 @@ export default function SplashScreen() {
         ]}
       >
         <Image
-          source={require('../../assets/images/Luvia/Logo.png')}
+          source={require('../../assets/images/Luvia/logo-branca.png')}
           style={styles.logo}
           resizeMode="contain"
         />

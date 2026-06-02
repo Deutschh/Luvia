@@ -10,10 +10,10 @@ import {
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
-const BLUE = '#0A6DFF';
+const BLUE = '#0162FF';
 const TEXT = '#111827';
-const MUTED = '#7A7A7A';
-const LIGHT = '#F1F1F1';
+const MUTED = '#979797';
+const LIGHT = '#F0F2F499';
 
 const onboardingSteps = [
   {
@@ -21,23 +21,25 @@ const onboardingSteps = [
     title: 'Conecte as\nsuas Luvas.',
     description:
       'Sincronize o hardware Luvia via Bluetooth e comece a transformar seus movimentos em voz.',
-    image: require('../../assets/images/Luvia/onboarding/connect-gloves.png'),
+    image: require('../../assets/images/Luvia/onboarding/mulher.png'),
   },
   {
     id: 2,
     title: 'Sua voz,\nsua identidade.',
     description:
       'Utilize a tecnologia de voz clonada para que a tradução soe exatamente como você.',
-    image: require('../../assets/images/Luvia/onboarding/voice-identity.png'),
+    image: require('../../assets/images/Luvia/onboarding/balao.png'),
   },
   {
     id: 3,
     title: 'Evolua seu\nvocabulário.',
     description:
       'Treine novos sinais e personalize seu dicionário para uma comunicação cada vez mais fluida.',
-    image: require('../../assets/images/Luvia/onboarding/vocabulary.png'),
+    image: require('../../assets/images/Luvia/onboarding/estudos.png'),
   },
 ];
+
+const RIGHT_ARROW = require('../../assets/images/Luvia/onboarding/seta-direita.png');
 
 export default function OnboardingScreen() {
   const [step, setStep] = useState(0);
@@ -95,7 +97,11 @@ export default function OnboardingScreen() {
           onPress={handleContinue}
         >
           <Text style={styles.continueButtonText}>Continuar</Text>
-          <Text style={styles.arrow}>›</Text>
+          <Image 
+    source={RIGHT_ARROW} 
+    style={styles.arrowIcon} 
+    resizeMode="contain"
+  />>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -110,14 +116,14 @@ function WelcomeScreen() {
       <View style={styles.container}>
         <View style={styles.welcomeImageWrapper}>
           <Image
-            source={require('../../assets/images/Luvia/onboarding/welcome.png')}
+            source={require('../../assets/images/Luvia/onboarding/pessoas.png')}
             style={styles.welcomeImage}
             resizeMode="contain"
           />
         </View>
 
         <Image
-          source={require('../../assets/images/Luvia/Logo.png')}
+          source={require('../../assets/images/Luvia/logo.png')}
           style={styles.welcomeLogo}
           resizeMode="contain"
         />
@@ -169,7 +175,7 @@ const styles = StyleSheet.create({
 
   progressBar: {
     flex: 1,
-    height: 4,
+    height: 5,
     borderRadius: 999,
   },
 
@@ -189,7 +195,7 @@ const styles = StyleSheet.create({
     color: BLUE,
     fontSize: 30,
     lineHeight: 32,
-    fontWeight: '700',
+    fontFamily: 'MazzardH-Medium',
     textAlign: 'center',
     marginBottom: 28,
   },
@@ -198,6 +204,7 @@ const styles = StyleSheet.create({
     color: MUTED,
     fontSize: 13,
     lineHeight: 18,
+    fontFamily: 'MazzardH-Medium',
     textAlign: 'center',
     maxWidth: 290,
   },
@@ -228,6 +235,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     flex: 1,
+    fontFamily: 'MazzardH-Medium',
     textAlign: 'left',
   },
 
@@ -236,6 +244,12 @@ const styles = StyleSheet.create({
     fontSize: 36,
     lineHeight: 36,
     marginTop: -3,
+  },
+
+  arrowIcon: {
+    width: 16,    
+    height: 16,  
+    tintColor: '#FFFFFF',
   },
 
   welcomeImageWrapper: {
@@ -261,6 +275,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
+    fontFamily: 'MazzardH-Medium',
     marginBottom: 26,
   },
 
@@ -276,7 +291,7 @@ const styles = StyleSheet.create({
   registerButtonText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: 'MazzardH-Medium',
   },
 
   loginButton: {
@@ -289,5 +304,6 @@ const styles = StyleSheet.create({
     color: BLUE,
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'MazzardH-Medium',
   },
 });
