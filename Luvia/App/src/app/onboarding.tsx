@@ -123,7 +123,7 @@ function WelcomeScreen() {
         </View>
 
         <Image
-          source={require('../../assets/images/Luvia/logo.png')}
+          source={require('../../assets/images/Luvia/Logo.png')}
           style={styles.welcomeLogo}
           resizeMode="contain"
         />
