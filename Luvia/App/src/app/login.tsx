@@ -13,6 +13,7 @@ import {
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
+import { useAuth } from '../contexts/AuthContext';
 
 const BLUE = '#0A6DFF';
 const TEXT = '#111827';
@@ -31,16 +32,42 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
 
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { signIn } = useAuth();
 
-  function handleLogin() {
+  async function handleLogin() {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   if (!emailRegex.test(email)) {
     alert('Por favor, insira um e-mail válido (ex: seuemail@dominio.com)');
-    return; 
+    return;
   }
 
-  router.push('/verify-email');
+  if (password.trim().length < 6) {
+    alert('A senha precisa ter pelo menos 6 caracteres.');
+    return;
+  }
+
+  try {
+    setLoading(true);
+
+    await signIn({
+      email,
+      password,
+    });
+
+    router.replace('/home');
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível fazer login.';
+
+    alert(message);
+  } finally {
+    setLoading(false);
+  }
 }
 
   return (
@@ -132,6 +159,8 @@ export default function LoginScreen() {
               placeholder="Insira sua senha"
               placeholderTextColor="#9CA3AF"
               secureTextEntry={!showPassword}
+              value={password}
+              onChangeText={setPassword}
             />
 
             <TouchableOpacity
@@ -174,7 +203,9 @@ export default function LoginScreen() {
             activeOpacity={0.85}
             onPress={handleLogin}
           >
-            <Text style={styles.mainButtonText}>Entrar</Text>
+            <Text style={styles.mainButtonText}>
+              {loading ? 'Entrando...' : 'Entrar'}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

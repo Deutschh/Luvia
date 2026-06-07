@@ -13,6 +13,7 @@ import {
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
+import { useAuth } from '../contexts/AuthContext';
 
 const BLUE = '#0A6DFF';
 const TEXT = '#111827';
@@ -34,15 +35,55 @@ export default function RegisterScreen() {
 
   const [email, setEmail] = useState('');
 
-function handleRegister() {
+  const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { signUp } = useAuth();
+
+async function handleRegister() {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  if (name.trim().length < 3) {
+    alert('Informe seu nome completo.');
+    return;
+  }
+
+  if (phone.replace(/\D/g, '').length < 10) {
+    alert('Informe um telefone válido.');
+    return;
+  }
 
   if (!emailRegex.test(email)) {
     alert('Por favor, insira um e-mail válido para o cadastro.');
     return;
   }
 
-  router.push('/verify-email');
+  if (password.trim().length < 6) {
+    alert('A senha precisa ter pelo menos 6 caracteres.');
+    return;
+  }
+
+  try {
+    setLoading(true);
+
+    await signUp({
+      name,
+      phone,
+      email,
+      password,
+    });
+
+    router.push('/verify-email');
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível fazer o cadastro.';
+
+    alert(message);
+  } finally {
+    setLoading(false);
+  }
 }
 
 const [phone, setPhone] = useState('');
@@ -134,6 +175,8 @@ function handlePhoneChange(text: string) {
               placeholder="Insira seu nome"
               placeholderTextColor="#9CA3AF"
               autoCapitalize="words"
+              value={name}
+              onChangeText={setName}
             />
           </View>
 
@@ -188,6 +231,8 @@ function handlePhoneChange(text: string) {
               placeholder="Insira sua senha"
               placeholderTextColor="#9CA3AF"
               secureTextEntry={!showPassword}
+              value={password}
+              onChangeText={setPassword}
             />
 
             <TouchableOpacity
@@ -223,7 +268,9 @@ function handlePhoneChange(text: string) {
             activeOpacity={0.85}
             onPress={handleRegister}
           >
-            <Text style={styles.mainButtonText}>Cadastrar-se</Text>
+            <Text style={styles.mainButtonText}>
+              {loading ? 'Cadastrando...' : 'Cadastrar'}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

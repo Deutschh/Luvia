@@ -1,11 +1,14 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { AppButton } from '../components/AppButton';
 import { colors } from '../theme/colors';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function HomeScreen() {
+  const { user } = useAuth();
+
   return (
     <View style={styles.container}>
-      <Text style={styles.greeting}>Olá, Guilherme 👋</Text>
+      <Text style={styles.greeting}>Olá, {user?.name} 👋</Text>
 
       <Text style={styles.title}>Painel do Libras-Connect</Text>
 
