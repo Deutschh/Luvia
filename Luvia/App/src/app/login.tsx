@@ -13,6 +13,8 @@ import {
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
+import { GlassView, GlassContainer } from 'expo-glass-effect';
+import { useAuth } from '../contexts/AuthContext';
 
 const BLUE = '#0A6DFF';
 const TEXT = '#111827';
@@ -29,19 +31,45 @@ const OLHODOIS = require('../../assets/images/Luvia/login/olho-dois.png');
 export default function LoginScreen() {
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const { signIn } = useAuth();
 
-  function handleLogin() {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const isFormValid = email.trim().length > 0 && password.trim().length > 0;
 
-  if (!emailRegex.test(email)) {
-    alert('Por favor, insira um e-mail válido (ex: seuemail@dominio.com)');
-    return; 
+  async function handleLogin() {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(email)) {
+      alert('Por favor, insira um e-mail válido (ex: seuemail@dominio.com)');
+      return; 
+    }
+
+    if (password.trim().length < 6) {
+    alert('A senha precisa ter pelo menos 6 caracteres.');
+    return;
   }
 
-  router.push('/verify-email');
-}
+  try {
+    setLoading(true);
+
+    await signIn({
+      email,
+      password,
+    });
+
+    router.replace('/home');
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível fazer login.';
+
+    alert(message);
+  } finally {
+    setLoading(false);
+  }
+  }
 
   return (
     <KeyboardAvoidingView
@@ -56,11 +84,14 @@ export default function LoginScreen() {
       >
         <View style={styles.header}>
           <TouchableOpacity
-            style={styles.backButton}
+            style={styles.backButtonWrapper}
             activeOpacity={0.75}
             onPress={() => router.back()}
           >
-            <Feather name="chevron-left" size={24} color={BLUE} />
+            <GlassContainer style={StyleSheet.absoluteFill}>
+              <GlassView style={styles.glassEffect} />
+            </GlassContainer>
+            <Feather name="chevron-left" size={28} color={BLUE} />
           </TouchableOpacity>
 
           <Image
@@ -109,14 +140,14 @@ export default function LoginScreen() {
               resizeMode="contain"
             />
             <TextInput
-  style={styles.input}
-  placeholder="Insira seu email"
-  placeholderTextColor="#9CA3AF"
-  keyboardType="email-address"
-  autoCapitalize="none"
-  value={email}
-  onChangeText={setEmail} 
-/>
+              style={styles.input}
+              placeholder="Insira seu email"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail} 
+            />
           </View>
 
           <Text style={styles.label}>Senha</Text>
@@ -132,6 +163,8 @@ export default function LoginScreen() {
               placeholder="Insira sua senha"
               placeholderTextColor="#9CA3AF"
               secureTextEntry={!showPassword}
+              value={password}
+              onChangeText={setPassword}
             />
 
             <TouchableOpacity
@@ -160,21 +193,24 @@ export default function LoginScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity 
-    activeOpacity={0.75} 
-    onPress={() => router.push('/forgot-password')}
-  >
-    <Text style={styles.forgotText}>Esqueceu a senha?</Text>
-  </TouchableOpacity>
+              activeOpacity={0.75} 
+              onPress={() => router.push('/forgot-password')}
+            >
+              <Text style={styles.forgotText}>Esqueceu a senha?</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
         <View style={styles.footer}>
           <TouchableOpacity
-            style={styles.mainButton}
-            activeOpacity={0.85}
-            onPress={handleLogin}
+            style={[styles.mainButton, { backgroundColor: isFormValid ? BLUE : '#D1D5DB' }]}
+            activeOpacity={isFormValid ? 0.85 : 1}
+            onPress={isFormValid ? handleLogin : undefined}
+            disabled={!isFormValid}
           >
-            <Text style={styles.mainButtonText}>Entrar</Text>
+            <Text style={styles.mainButtonText}>
+              {loading ? 'Entrando...' : 'Entrar'}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -200,22 +236,21 @@ const styles = StyleSheet.create({
     marginBottom: 34,
   },
 
-  backButton: {
+  backButtonWrapper: {
     position: 'absolute',
     left: 0,
     top: 4,
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12, 
-    elevation: 3, 
+    zIndex: 10,
+  },
+
+  glassEffect: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
 
   logo: {
@@ -314,7 +349,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginLeft: 8,
     marginBottom: 8,
-    fontFamily: 'Poppins',
+    fontFamily: 'MazzardH-Medium',
   },
 
   inputWrapper: {
@@ -402,7 +437,6 @@ const styles = StyleSheet.create({
   mainButton: {
     height: 56,
     borderRadius: 28,
-    backgroundColor: BLUE,
     alignItems: 'center',
     justifyContent: 'center',
   },

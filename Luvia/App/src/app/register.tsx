@@ -13,6 +13,8 @@ import {
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
+import { GlassView, GlassContainer } from 'expo-glass-effect';
+import { useAuth } from '../contexts/AuthContext';
 
 const BLUE = '#0A6DFF';
 const TEXT = '#111827';
@@ -25,44 +27,81 @@ const EMAIL = require('../../assets/images/Luvia/login/email.png');
 const SENHA = require('../../assets/images/Luvia/login/senha.png');
 const OLHO = require('../../assets/images/Luvia/login/olho.png');
 const OLHODOIS = require('../../assets/images/Luvia/login/olho-dois.png');
-const LAPIS = require('../../assets/images/Luvia/login/lapis.png');
-const TELEFONE = require('../../assets/images/Luvia/login/telefone.png');
 
 export default function RegisterScreen() {
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-
   const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { signUp } = useAuth();
 
-function handleRegister() {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const isFormValid = name.trim().length >= 3 && phone.replace(/\D/g, '').length >= 10 && email.includes('@') && password.length >= 6;
 
-  if (!emailRegex.test(email)) {
-    alert('Por favor, insira um e-mail válido para o cadastro.');
-    return;
+  async function handleRegister() {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (name.trim().length < 3) {
+      alert('Informe seu nome completo.');
+      return;
+    }
+
+    if (phone.replace(/\D/g, '').length < 10) {
+      alert('Informe um telefone válido.');
+      return;
+    }
+
+    if (!emailRegex.test(email)) {
+      alert('Por favor, insira um e-mail válido para o cadastro.');
+      return;
+    }
+
+    if (password.trim().length < 6) {
+      alert('A senha precisa ter pelo menos 6 caracteres.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      await signUp({
+        name,
+        phone,
+        email,
+        password,
+      });
+
+      router.push('/verify-email');
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível fazer o cadastro.';
+
+      alert(message);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  router.push('/verify-email');
-}
-
-const [phone, setPhone] = useState('');
-
-function handlePhoneChange(text: string) {
- 
-  const cleaned = text.replace(/\D/g, '');
-  
-  const limited = cleaned.slice(0, 11);
-  
-  let formatted = limited;
-  if (limited.length > 2) {
-    formatted = `(${limited.slice(0, 2)}) ${limited.slice(2)}`;
+  function handlePhoneChange(text: string) {
+    const cleaned = text.replace(/\D/g, '');
+    const limited = cleaned.slice(0, 11);
+    
+    let formatted = limited;
+    if (limited.length > 2) {
+      if (limited.length <= 6) {
+        formatted = `(${limited.slice(0, 2)}) ${limited.slice(2)}`;
+      } else if (limited.length <= 10) {
+        formatted = `(${limited.slice(0, 2)}) ${limited.slice(2, 6)}-${limited.slice(6)}`;
+      } else {
+        formatted = `(${limited.slice(0, 2)}) ${limited.slice(2, 7)}-${limited.slice(7)}`;
+      }
+    }
+    setPhone(formatted);
   }
-  if (limited.length > 7) {
-    formatted = `(${limited.slice(0, 2)}) ${limited.slice(2, 7)}-${limited.slice(7)}`;
-  }
-  
-  setPhone(formatted);
-}
 
   return (
     <KeyboardAvoidingView
@@ -77,11 +116,14 @@ function handlePhoneChange(text: string) {
       >
         <View style={styles.header}>
           <TouchableOpacity
-            style={styles.backButton}
+            style={styles.backButtonWrapper}
             activeOpacity={0.75}
             onPress={() => router.back()}
           >
-            <Feather name="chevron-left" size={24} color={BLUE} />
+            <GlassContainer style={StyleSheet.absoluteFill}>
+              <GlassView style={styles.glassEffect} />
+            </GlassContainer>
+            <Feather name="chevron-left" size={28} color={BLUE} />
           </TouchableOpacity>
 
           <Image
@@ -134,27 +176,28 @@ function handlePhoneChange(text: string) {
               placeholder="Insira seu nome"
               placeholderTextColor="#9CA3AF"
               autoCapitalize="words"
+              value={name}
+              onChangeText={setName}
             />
           </View>
 
           <Text style={styles.label}>Celular</Text>
 
-<View style={styles.inputWrapper}>
-  <Image 
-    source={require('../../assets/images/Luvia/login/telefone.png')} 
-    style={[styles.formPngIcon, { tintColor: MUTED }]} 
-    resizeMode="contain"
-  />
-  <TextInput
-    style={styles.input}
-    placeholder="Insira seu número de telefone"
-    placeholderTextColor="#9CA3AF"
-    keyboardType="phone-pad"
-    maxLength={15} 
-    value={phone} 
-    onChangeText={handlePhoneChange} 
-  />
-</View>
+          <View style={styles.inputWrapper}>
+            <Image 
+              source={require('../../assets/images/Luvia/login/telefone.png')} 
+              style={[styles.formPngIcon, { tintColor: MUTED }]} 
+              resizeMode="contain"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Insira seu número de telefone"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="phone-pad"
+              value={phone} 
+              onChangeText={handlePhoneChange} 
+            />
+          </View>
 
           <Text style={styles.label}>Email</Text>
 
@@ -165,14 +208,14 @@ function handlePhoneChange(text: string) {
               resizeMode="contain"
             />
             <TextInput
-  style={styles.input}
-  placeholder="Insira seu email"
-  placeholderTextColor="#9CA3AF"
-  keyboardType="email-address"
-  autoCapitalize="none"
-  value={email}
-  onChangeText={setEmail}
-/>
+              style={styles.input}
+              placeholder="Insira seu email"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
+            />
           </View>
 
           <Text style={styles.label}>Senha</Text>
@@ -188,6 +231,8 @@ function handlePhoneChange(text: string) {
               placeholder="Insira sua senha"
               placeholderTextColor="#9CA3AF"
               secureTextEntry={!showPassword}
+              value={password}
+              onChangeText={setPassword}
             />
 
             <TouchableOpacity
@@ -219,11 +264,14 @@ function handlePhoneChange(text: string) {
 
         <View style={styles.footer}>
           <TouchableOpacity
-            style={styles.mainButton}
-            activeOpacity={0.85}
-            onPress={handleRegister}
+            style={[styles.mainButton, { backgroundColor: isFormValid ? BLUE : '#D1D5DB' }]}
+            activeOpacity={isFormValid ? 0.85 : 1}
+            onPress={isFormValid ? handleRegister : undefined}
+            disabled={!isFormValid}
           >
-            <Text style={styles.mainButtonText}>Cadastrar-se</Text>
+            <Text style={styles.mainButtonText}>
+              {loading ? 'Cadastrando...' : 'Cadastrar'}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -249,22 +297,21 @@ const styles = StyleSheet.create({
     marginBottom: 34,
   },
 
-  backButton: {
+  backButtonWrapper: {
     position: 'absolute',
     left: 0,
     top: 4,
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12, 
-    elevation: 3, 
+    zIndex: 10,
+  },
+
+  glassEffect: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
 
   logo: {
@@ -278,7 +325,7 @@ const styles = StyleSheet.create({
     backgroundColor: SOFT,
     flexDirection: 'row',
     padding: 3,
-    marginBottom: 76,
+    marginBottom: 36,
   },
 
   tabActive: {
@@ -363,7 +410,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginLeft: 8,
     marginBottom: 8,
-    fontFamily: 'Poppins',
+    fontFamily: 'MazzardH-Medium',
   },
 
   inputWrapper: {
@@ -445,7 +492,6 @@ const styles = StyleSheet.create({
   mainButton: {
     height: 56,
     borderRadius: 28,
-    backgroundColor: BLUE,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -455,5 +501,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     fontFamily: 'MazzardH-Medium',
-  },
+  }
 });

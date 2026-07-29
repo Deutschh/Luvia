@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useFonts } from 'expo-font';
 import { SplashScreen, Stack } from 'expo-router';
+import { AuthProvider } from '../contexts/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -9,6 +10,8 @@ export default function RootLayout() {
     'Poppins': require('../../assets/fonts/poppins-regular.ttf'),
     'MazzardH-Medium': require('../../assets/fonts/mazzard-h-medium.otf'),
     'PoppinsM': require('../../assets/fonts/poppins-medium.ttf'),
+    'Poppins SemiBold': require('../../assets/fonts/poppins-semibold.ttf'),
+    'SF Medium': require('../../assets/fonts/sf-medium.otf'),
   });
 
   useEffect(() => {
@@ -25,5 +28,9 @@ export default function RootLayout() {
     return null;
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <AuthProvider>
+      <Stack screenOptions={{ headerShown: false }} />
+    </AuthProvider>
+  );
 }

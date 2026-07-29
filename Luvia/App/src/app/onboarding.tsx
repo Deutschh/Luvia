@@ -98,10 +98,10 @@ export default function OnboardingScreen() {
         >
           <Text style={styles.continueButtonText}>Continuar</Text>
           <Image 
-    source={RIGHT_ARROW} 
-    style={styles.arrowIcon} 
-    resizeMode="contain"
-  />>
+            source={RIGHT_ARROW} 
+            style={styles.arrowIcon} 
+            resizeMode="contain"
+          />
         </TouchableOpacity>
       </View>
     </SafeAreaView>

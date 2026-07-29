@@ -11,6 +11,7 @@ import {
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
+import { GlassView, GlassContainer } from 'expo-glass-effect';
 
 const BLUE = '#0A6DFF';
 const TEXT = '#111827';
@@ -18,9 +19,10 @@ const MUTED = '#979797';
 const BORDER = '#888E9740';
 
 const CARTA = require('../../assets/images/Luvia/login/carta.png');
-
+    
 export default function VerifyEmailScreen() {
   const [code, setCode] = useState(['', '', '', '', '', '']);
+  const isFormValid = code.every(digit => digit.trim().length > 0);
   const [countdown, setCountdown] = useState(10);
   const inputsRef = useRef<Array<TextInput | null>>([]);
 
@@ -63,11 +65,14 @@ export default function VerifyEmailScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity
-            style={styles.backButton}
-            activeOpacity={0.75}
-            onPress={() => router.back()}
+          style={styles.backButtonWrapper}
+          activeOpacity={0.75}
+          onPress={() => router.back()}
           >
-            <Feather name="chevron-left" size={24} color={BLUE} />
+          <GlassContainer style={StyleSheet.absoluteFill}>
+          <GlassView style={styles.glassEffect} />
+          </GlassContainer>
+          <Feather name="chevron-left" size={28} color={BLUE} />
           </TouchableOpacity>
         </View>
 
@@ -103,9 +108,10 @@ export default function VerifyEmailScreen() {
           </View>
 
           <TouchableOpacity
-            style={styles.mainButton}
-            activeOpacity={0.85}
-            onPress={handleConfirm}
+            style={[styles.mainButton, { backgroundColor: isFormValid ? BLUE : '#D1D5DB' }]}
+            activeOpacity={isFormValid ? 0.85 : 1}
+            onPress={isFormValid ? handleConfirm : undefined}
+            disabled={!isFormValid}
           >
             <Text style={styles.mainButtonText}>Confirmar</Text>
           </TouchableOpacity>
@@ -142,18 +148,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 20,
   },
-  backButton: {
+  backButtonWrapper: {
+    left: 0,
+    top: 0,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+
+  glassEffect: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
   },
   content: {
     flex: 1,
@@ -220,7 +228,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 56,
     borderRadius: 28,
-    backgroundColor: BLUE,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
