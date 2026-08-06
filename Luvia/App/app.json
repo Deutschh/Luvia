@@ -8,9 +8,11 @@
     "scheme": "luvia",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "bundleIdentifier": "com.joaopedro.luvia",
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.joaopedro.luvia",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -37,11 +39,23 @@
       ],
       "expo-font",
       "expo-web-browser",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+      "@react-native-google-signin/google-signin",
+        {
+         "iosUrlScheme": "com.googleusercontent.apps.740321488838-8vdas7acqma2jnng5cqkpil03n9v3nkf"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "5da0d159-00a1-4a7f-9e43-ceb75243a1c4"
+      }
     }
   }
 }

@@ -36,12 +36,18 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signUp } = useAuth();
+  const [loadingGoogle, setLoadingGoogle] = useState(false);
+  const { signInWithGoogle, signUp } = useAuth();
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  const isFormValid = name.trim().length >= 3 && phone.replace(/\D/g, '').length >= 10 && email.includes('@') && password.length >= 6;
+const isFormValid =
+  name.trim().length >= 3 &&
+  phone.replace(/\D/g, '').length >= 10 &&
+  emailRegex.test(email) &&
+  password.trim().length >= 6 &&
+  !loading;
 
   async function handleRegister() {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (name.trim().length < 3) {
       alert('Informe seu nome completo.');
@@ -86,20 +92,43 @@ export default function RegisterScreen() {
     }
   }
 
+  async function handleGoogleRegister() {
+    try {
+      setLoadingGoogle(true);
+
+      const userData = await signInWithGoogle();
+
+      if (!userData) {
+        return;
+      }
+
+      router.replace('/home');
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível entrar com Google.';
+
+      alert(message);
+    } finally {
+      setLoadingGoogle(false);
+    }
+  }
+
   function handlePhoneChange(text: string) {
     const cleaned = text.replace(/\D/g, '');
     const limited = cleaned.slice(0, 11);
-    
+
     let formatted = limited;
+
     if (limited.length > 2) {
-      if (limited.length <= 6) {
-        formatted = `(${limited.slice(0, 2)}) ${limited.slice(2)}`;
-      } else if (limited.length <= 10) {
-        formatted = `(${limited.slice(0, 2)}) ${limited.slice(2, 6)}-${limited.slice(6)}`;
-      } else {
-        formatted = `(${limited.slice(0, 2)}) ${limited.slice(2, 7)}-${limited.slice(7)}`;
-      }
+      formatted = `(${limited.slice(0, 2)}) ${limited.slice(2)}`;
     }
+
+    if (limited.length > 7) {
+      formatted = `(${limited.slice(0, 2)}) ${limited.slice(2, 7)}-${limited.slice(7)}`;
+    }
+
     setPhone(formatted);
   }
 
@@ -147,13 +176,20 @@ export default function RegisterScreen() {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.googleButton} activeOpacity={0.85}>
+        <TouchableOpacity
+          style={styles.googleButton}
+          activeOpacity={0.85}
+          onPress={handleGoogleRegister}
+          disabled={loadingGoogle}
+        >
           <Image 
             source={GOOGLE} 
             style={styles.googlePngIcon} 
             resizeMode="contain"
           />
-          <Text style={styles.googleText}>Entrar com Google</Text>
+          <Text style={styles.googleText}>
+            {loadingGoogle ? 'Entrando...' : 'Entrar com Google'}
+          </Text>
         </TouchableOpacity>
 
         <View style={styles.dividerWrapper}>
@@ -415,7 +451,7 @@ const styles = StyleSheet.create({
 
   inputWrapper: {
     height: 42,
-    borderRadius: 21,
+    borderRadius: 18,
     borderWidth: 1.5,
     borderColor: BORDER,
     flexDirection: 'row',
@@ -432,7 +468,7 @@ const styles = StyleSheet.create({
 
   input: {
     flex: 1,
-    height: '100%',
+    height: '110%',
     color: TEXT,
     fontSize: 13,
     fontFamily: 'Poppins',
@@ -501,5 +537,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     fontFamily: 'MazzardH-Medium',
-  }
+  },
 });

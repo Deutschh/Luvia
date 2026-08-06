@@ -11,7 +11,6 @@ import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
 const BLUE = '#0162FF';
-const TEXT = '#111827';
 const MUTED = '#979797';
 const LIGHT = '#F0F2F499';
 
@@ -97,9 +96,9 @@ export default function OnboardingScreen() {
           onPress={handleContinue}
         >
           <Text style={styles.continueButtonText}>Continuar</Text>
-          <Image 
-            source={RIGHT_ARROW} 
-            style={styles.arrowIcon} 
+          <Image
+            source={RIGHT_ARROW}
+            style={styles.arrowIcon}
             resizeMode="contain"
           />
         </TouchableOpacity>

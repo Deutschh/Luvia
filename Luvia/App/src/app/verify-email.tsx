@@ -24,7 +24,7 @@ export default function VerifyEmailScreen() {
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const isFormValid = code.every(digit => digit.trim().length > 0);
   const [countdown, setCountdown] = useState(10);
-  const inputsRef = useRef<Array<TextInput | null>>([]);
+  const inputsRef = useRef<(TextInput | null)[]>([]);
 
   useEffect(() => {
     if (countdown === 0) return;
@@ -96,7 +96,9 @@ export default function VerifyEmailScreen() {
             {code.map((digit, index) => (
               <TextInput
                 key={index}
-                ref={(ref) => (inputsRef.current[index] = ref)}
+                ref={(ref) => {
+                  inputsRef.current[index] = ref;
+                }}
                 style={[styles.codeInput, digit ? styles.codeInputActive : null]}
                 keyboardType="number-pad"
                 maxLength={1}

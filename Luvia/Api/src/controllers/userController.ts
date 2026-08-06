@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
+import { publicUserSelect } from '../utils/publicUser';
 
 const createUserSchema = z.object({
   name: z.string().min(2, 'Nome obrigatório'),
@@ -18,18 +19,6 @@ const updateUserSchema = z.object({
   password: z.string().min(6, 'A senha precisa ter pelo menos 6 caracteres').optional(),
 });
 
-function userSelect() {
-  return {
-    id: true,
-    name: true,
-    phone: true,
-    email: true,
-    role: true,
-    createdAt: true,
-    updatedAt: true,
-  };
-}
-
 function canManageUser(request: Request, userId: string) {
   return request.user?.role === 'ADMIN' || request.user?.id === userId;
 }
@@ -37,7 +26,7 @@ function canManageUser(request: Request, userId: string) {
 export async function listUsers(request: Request, response: Response) {
   const users = await prisma.user.findMany({
     orderBy: { createdAt: 'desc' },
-    select: userSelect(),
+    select: publicUserSelect,
   });
 
   return response.json(users);
@@ -63,7 +52,7 @@ export async function createUser(request: Request, response: Response) {
         password: hashedPassword,
         role: data.role || 'USER',
       },
-      select: userSelect(),
+      select: publicUserSelect,
     });
 
     return response.status(201).json(user);
@@ -80,7 +69,7 @@ export async function createUser(request: Request, response: Response) {
 export async function getMe(request: Request, response: Response) {
   const user = await prisma.user.findUnique({
     where: { id: request.user!.id },
-    select: userSelect(),
+    select: publicUserSelect,
   });
 
   if (!user) {
@@ -99,7 +88,7 @@ export async function getUserById(request: Request, response: Response) {
 
   const user = await prisma.user.findUnique({
     where: { id },
-    select: userSelect(),
+    select: publicUserSelect,
   });
 
   if (!user) {
@@ -145,7 +134,7 @@ export async function updateUser(request: Request, response: Response) {
         email: data.email,
         password: data.password ? await bcrypt.hash(data.password, 10) : undefined,
       },
-      select: userSelect(),
+      select: publicUserSelect,
     });
 
     return response.json(user);

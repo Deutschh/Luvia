@@ -10,6 +10,7 @@ import {
   login,
   logout,
   register,
+  signInWithGoogle as signInWithGoogleService,
   User,
 } from '../services/authService';
 import { getAccessToken } from '../services/tokenStorage';
@@ -31,6 +32,7 @@ type AuthContextData = {
   loading: boolean;
   signIn: (data: SignInData) => Promise<void>;
   signUp: (data: SignUpData) => Promise<void>;
+  signInWithGoogle: () => Promise<User | null>;
   signOut: () => Promise<void>;
   loadUser: () => Promise<void>;
 };
@@ -73,6 +75,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(userData);
   }
 
+  async function signInWithGoogle() {
+    const userData = await signInWithGoogleService();
+
+    if (userData) {
+      setUser(userData);
+    }
+
+    return userData;
+  }
+
   async function signOut() {
     await logout();
     setUser(null);
@@ -89,6 +101,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         loading,
         signIn,
         signUp,
+        signInWithGoogle,
         signOut,
         loadUser,
       }}

@@ -1,4 +1,5 @@
 import { apiFetch } from './api';
+import { authenticateWithGoogle } from './googleAuthService';
 import { clearTokens, getRefreshToken, saveTokens } from './tokenStorage';
 
 export type User = {
@@ -7,11 +8,13 @@ export type User = {
   phone: string | null;
   email: string;
   role: 'USER' | 'ADMIN';
+  avatarUrl: string | null;
+  authProvider: 'EMAIL' | 'GOOGLE';
   createdAt: string;
   updatedAt: string;
 };
 
-type AuthResponse = {
+export type AuthResponse = {
   user: User;
   token: string;
   refreshToken: string;
@@ -49,6 +52,10 @@ export async function register(data: RegisterData) {
   await saveTokens(response.token, response.refreshToken);
 
   return response.user;
+}
+
+export async function signInWithGoogle() {
+  return authenticateWithGoogle();
 }
 
 export async function getMe() {

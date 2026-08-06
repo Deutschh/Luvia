@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
+import { OAuth2Client } from 'google-auth-library';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import {
@@ -8,6 +9,7 @@ import {
   getRefreshTokenExpirationDate,
   hashRefreshToken,
 } from '../utils/tokens';
+import { getDefaultNameFromEmail, publicUserSelect } from '../utils/publicUser';
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Nome obrigatório'),
@@ -25,16 +27,33 @@ const refreshSchema = z.object({
   refreshToken: z.string().min(1, 'Refresh token obrigatório'),
 });
 
-function userSelect() {
-  return {
-    id: true,
-    name: true,
-    phone: true,
-    email: true,
-    role: true,
-    createdAt: true,
-    updatedAt: true,
-  };
+const googleAuthSchema = z.object({
+  idToken: z.string().min(1, 'idToken do Google obrigatório'),
+});
+
+const googleClient = new OAuth2Client();
+
+function getGoogleClientId() {
+  const clientId = process.env.GOOGLE_WEB_CLIENT_ID;
+
+  if (!clientId) {
+    throw new Error('GOOGLE_WEB_CLIENT_ID não configurado');
+  }
+
+  return clientId;
+}
+
+async function verifyGoogleIdToken(idToken: string) {
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: getGoogleClientId(),
+    });
+
+    return ticket.getPayload() ?? null;
+  } catch {
+    return null;
+  }
 }
 
 async function createRefreshToken(userId: string) {
@@ -72,7 +91,7 @@ export async function register(request: Request, response: Response) {
         email: data.email,
         password: hashedPassword,
       },
-      select: userSelect(),
+      select: publicUserSelect,
     });
 
     const token = generateAccessToken(user.id, user.role);
@@ -95,10 +114,18 @@ export async function login(request: Request, response: Response) {
 
     const user = await prisma.user.findUnique({
       where: { email: data.email },
+      select: {
+        ...publicUserSelect,
+        password: true,
+      },
     });
 
     if (!user) {
       return response.status(401).json({ message: 'E-mail ou senha inválidos.' });
+    }
+
+    if (!user.password) {
+      return response.status(401).json({ message: 'Use o login com Google para acessar esta conta.' });
     }
 
     const passwordMatches = await bcrypt.compare(data.password, user.password);
@@ -107,19 +134,12 @@ export async function login(request: Request, response: Response) {
       return response.status(401).json({ message: 'E-mail ou senha inválidos.' });
     }
 
+    const { password, ...publicUser } = user;
     const token = generateAccessToken(user.id, user.role);
     const refreshToken = await createRefreshToken(user.id);
 
     return response.json({
-      user: {
-        id: user.id,
-        name: user.name,
-        phone: user.phone,
-        email: user.email,
-        role: user.role,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      },
+      user: publicUser,
       token,
       refreshToken,
     });
@@ -130,6 +150,129 @@ export async function login(request: Request, response: Response) {
 
     console.error(error);
     return response.status(500).json({ message: 'Erro interno ao fazer login.' });
+  }
+}
+
+export async function googleAuth(request: Request, response: Response) {
+  try {
+    const { idToken } = googleAuthSchema.parse(request.body);
+    const payload = await verifyGoogleIdToken(idToken);
+
+    if (!payload?.sub) {
+      return response.status(401).json({ message: 'idToken do Google inválido.' });
+    }
+
+    const googleId = payload.sub;
+    const email = payload.email?.toLowerCase();
+    const avatarUrl = payload.picture;
+
+    if (!email) {
+      return response.status(400).json({ message: 'A conta Google informada não possui e-mail.' });
+    }
+
+    if (payload.email_verified !== true) {
+      return response.status(403).json({ message: 'O e-mail da conta Google não está verificado.' });
+    }
+
+    let user = await prisma.user.findUnique({
+      where: { googleId },
+      select: {
+        id: true,
+        name: true,
+        avatarUrl: true,
+        role: true,
+      },
+    });
+
+    if (user) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          avatarUrl: avatarUrl ?? user.avatarUrl,
+          authProvider: 'GOOGLE',
+        },
+        select: {
+          id: true,
+          name: true,
+          avatarUrl: true,
+          role: true,
+        },
+      });
+    } else {
+      const userByEmail = await prisma.user.findUnique({
+        where: { email },
+        select: {
+          id: true,
+          name: true,
+          googleId: true,
+          avatarUrl: true,
+        },
+      });
+
+      if (userByEmail) {
+        if (userByEmail.googleId && userByEmail.googleId !== googleId) {
+          return response.status(409).json({ message: 'Este e-mail já está vinculado a outra conta Google.' });
+        }
+
+        user = await prisma.user.update({
+          where: { id: userByEmail.id },
+          data: {
+            googleId,
+            avatarUrl: avatarUrl ?? userByEmail.avatarUrl,
+            authProvider: 'GOOGLE',
+          },
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+            role: true,
+          },
+        });
+      } else {
+        user = await prisma.user.create({
+          data: {
+            name: payload.name?.trim() || getDefaultNameFromEmail(email),
+            email,
+            googleId,
+            avatarUrl,
+            authProvider: 'GOOGLE',
+            password: null,
+            role: 'USER',
+          },
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+            role: true,
+          },
+        });
+      }
+    }
+
+    const publicUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: publicUserSelect,
+    });
+
+    if (!publicUser) {
+      return response.status(404).json({ message: 'Usuário não encontrado.' });
+    }
+
+    const token = generateAccessToken(publicUser.id, publicUser.role);
+    const refreshToken = await createRefreshToken(publicUser.id);
+
+    return response.json({
+      user: publicUser,
+      token,
+      refreshToken,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return response.status(400).json({ message: 'Dados inválidos.', errors: error.issues });
+    }
+
+    console.error(error);
+    return response.status(500).json({ message: 'Erro interno ao autenticar com Google.' });
   }
 }
 

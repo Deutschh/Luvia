@@ -42,7 +42,7 @@ export default function ForgotPasswordScreen() {
 
       return () => clearTimeout(timer);
     }
-  }, [showToast]);
+  }, [progressAnim, showToast]);
 
   function handleSend() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
   },
   inputWrapper: {
     height: 44,
-    borderRadius: 20,
+    borderRadius: 18,
     borderWidth: 1.5,
     borderColor: BORDER,
     flexDirection: 'row',
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    height: '100%',
+    height: '110%',
     color: TEXT,
     fontSize: 13,
     fontFamily: 'Poppins',

@@ -33,7 +33,9 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { signIn } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [loadingGoogle, setLoadingGoogle] = useState(false);
+  const { signIn, signInWithGoogle } = useAuth();
 
   const isFormValid = email.trim().length > 0 && password.trim().length > 0;
 
@@ -42,33 +44,56 @@ export default function LoginScreen() {
 
     if (!emailRegex.test(email)) {
       alert('Por favor, insira um e-mail válido (ex: seuemail@dominio.com)');
-      return; 
+      return;
     }
 
     if (password.trim().length < 6) {
-    alert('A senha precisa ter pelo menos 6 caracteres.');
-    return;
+      alert('A senha precisa ter pelo menos 6 caracteres.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      await signIn({
+        email,
+        password,
+      });
+
+      router.replace('/home');
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível fazer login.';
+
+      alert(message);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  try {
-    setLoading(true);
+  async function handleGoogleLogin() {
+    try {
+      setLoadingGoogle(true);
 
-    await signIn({
-      email,
-      password,
-    });
+      const userData = await signInWithGoogle();
 
-    router.replace('/home');
-  } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível fazer login.';
+      if (!userData) {
+        return;
+      }
 
-    alert(message);
-  } finally {
-    setLoading(false);
-  }
+      router.replace('/home');
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível entrar com Google.';
+
+      alert(message);
+    } finally {
+      setLoadingGoogle(false);
+    }
   }
 
   return (
@@ -115,13 +140,20 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.googleButton} activeOpacity={0.85}>
+        <TouchableOpacity
+          style={styles.googleButton}
+          activeOpacity={0.85}
+          onPress={handleGoogleLogin}
+          disabled={loadingGoogle}
+        >
           <Image 
             source={GOOGLE} 
             style={styles.googlePngIcon} 
             resizeMode="contain"
           />
-          <Text style={styles.googleText}>Entrar com Google</Text>
+          <Text style={styles.googleText}>
+            {loadingGoogle ? 'Entrando...' : 'Entrar com Google'}
+          </Text>
         </TouchableOpacity>
 
         <View style={styles.dividerWrapper}>
@@ -354,7 +386,7 @@ const styles = StyleSheet.create({
 
   inputWrapper: {
     height: 42,
-    borderRadius: 21,
+    borderRadius: 18,
     borderWidth: 1.5,
     borderColor: BORDER,
     flexDirection: 'row',
@@ -371,7 +403,7 @@ const styles = StyleSheet.create({
 
   input: {
     flex: 1,
-    height: '100%',
+    height: '110%',
     color: TEXT,
     fontSize: 13,
     fontFamily: 'Poppins',
