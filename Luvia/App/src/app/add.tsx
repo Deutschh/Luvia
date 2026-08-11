@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  Alert,
   View,
   Text,
   StyleSheet,
@@ -18,67 +19,117 @@ import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
 import { GlassView, GlassContainer } from 'expo-glass-effect';
 import { LinearGradient } from 'expo-linear-gradient';
+import {
+  type DictionaryCategory,
+  createDictionarySign,
+  getDictionaryCategories,
+} from '../services/dictionaryService';
 
 const BLUE = '#0A6DFF';
 const TEXT = '#111827';
 const MUTED = '#9CA3AF';
 const BORDER = '#888E9740';
 const BRANCO = '#FFFFFF';
-const CARD_BG = '#FFFFFF';
-
 const ESSENCIAIS = require('../../assets/images/Luvia/home/essenciais.png');
 const FAVORITOS = require('../../assets/images/Luvia/home/favorito.png');
 const BEMESTAR = require('../../assets/images/Luvia/home/bem-estar.png');
 const SOCIAIS = require('../../assets/images/Luvia/home/sociais.png');
 const EDITAR = require('../../assets/images/Luvia/dicionario/editar.png');
-const CORTESIA = require('../../assets/images/Luvia/dicionario/cortesia.png');
-const RAPIDAS = require('../../assets/images/Luvia/dicionario/rapidas.png');
 const EMERGENCIA = require('../../assets/images/Luvia/dicionario/emergencia.png');
-const ALIMENTACAO = require('../../assets/images/Luvia/dicionario/alimentacao.png');
-const LOCALIZACAO = require('../../assets/images/Luvia/dicionario/localizacao.png');
-const TEMPO = require('../../assets/images/Luvia/dicionario/tempo.png');
-const FAMILIA = require('../../assets/images/Luvia/dicionario/familia.png');
-const EMOCOES = require('../../assets/images/Luvia/dicionario/emocoes.png');
-const INTERACAO = require('../../assets/images/Luvia/dicionario/interacao.png');
-const ESCOLA = require('../../assets/images/Luvia/dicionario/escola.png');
-const GIRIAS = require('../../assets/images/Luvia/dicionario/girias.png');
-const NOMES = require('../../assets/images/Luvia/dicionario/nomes.png');
-const ENTRETENIMENTO = require('../../assets/images/Luvia/dicionario/entretenimento.png');
-const INICIO = require('../../assets/images/Luvia/home/inicio.png');
-const DICIONARIO = require('../../assets/images/Luvia/home/dicionario.png');
-const LUVAS = require('../../assets/images/Luvia/home/luvas.png');
-const CONFIGURACOES = require('../../assets/images/Luvia/home/configuracoes.png');
 const SETA = require('../../assets/images/Luvia/dicionario/seta.png');
-const EDIT = require('../../assets/images/Luvia/home/editar.png');
 
-const ICON_OPTIONS = [
-  { id: '1', label: 'Favoritos', icon: FAVORITOS, category: 'Essenciais' },
-  { id: '2', label: 'Saudações', icon: SOCIAIS, category: 'Essenciais' },
-  { id: '3', label: 'Cortesia', icon: CORTESIA, category: 'Essenciais' },
-  { id: '4', label: 'Respostas Ráp.', icon: RAPIDAS, category: 'Essenciais' },
-  { id: '5', label: 'Emergência', icon: EMERGENCIA, category: 'Necessidades Básicas' },
-  { id: '6', label: 'Alimentação', icon: ALIMENTACAO, category: 'Necessidades Básicas' },
-  { id: '7', label: 'Localização', icon: LOCALIZACAO, category: 'Necessidades Básicas' },
-  { id: '8', label: 'Tempo', icon: TEMPO, category: 'Necessidades Básicas' },
-  { id: '9', label: 'Família', icon: FAMILIA, category: 'Social e Sentimentos' },
-  { id: '10', label: 'Emoções', icon: EMOCOES, category: 'Social e Sentimentos' },
-  { id: '11', label: 'Interação', icon: INTERACAO, category: 'Social e Sentimentos' },
-  { id: '12', label: 'Escola', icon: ESCOLA, category: 'Social e Sentimentos' },
-  { id: '13', label: 'Gírias', icon: GIRIAS, category: 'Personalizadas' },
-  { id: '14', label: 'Nomes', icon: NOMES, category: 'Personalizadas' },
-  { id: '15', label: 'Entretenimento', icon: ENTRETENIMENTO, category: 'Personalizadas' },
-];
+function mapIconByKey(iconKey?: string | null, slug?: string) {
+  const normalizedKey = (iconKey || slug || '').toLowerCase();
+
+  if (normalizedKey.includes('favorito')) {
+    return FAVORITOS;
+  }
+
+  if (normalizedKey.includes('saud')) {
+    return SOCIAIS;
+  }
+
+  if (normalizedKey.includes('emerg')) {
+    return EMERGENCIA;
+  }
+
+  if (normalizedKey.includes('bem') || normalizedKey.includes('estar')) {
+    return BEMESTAR;
+  }
+
+  return ESSENCIAIS;
+}
 
 export default function AddWordScreen() {
   const [nome, setNome] = useState('');
   const [descricao, setDescricao] = useState('');
   const [selectedIcon, setSelectedIcon] = useState(EDITAR);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
+  const [categories, setCategories] = useState<DictionaryCategory[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
 
   const progressAnim = useState(new Animated.Value(0))[0];
 
-  function handleAddWord() {
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadCategories() {
+      try {
+        const response = await getDictionaryCategories();
+
+        if (!isMounted) {
+          return;
+        }
+
+        setCategories(response);
+      } catch (error) {
+        if (isMounted) {
+          Alert.alert(
+            'Erro',
+            error instanceof Error ? error.message : 'Não foi possível carregar as categorias.'
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingCategories(false);
+        }
+      }
+    }
+
+    void loadCategories();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  async function handleAddWord() {
+    if (!selectedCategoryId) {
+      Alert.alert('Categoria', 'Selecione uma categoria.');
+      return;
+    }
+
+    if (!nome.trim()) {
+      Alert.alert('Nome', 'Informe o nome da palavra.');
+      return;
+    }
+
+    try {
+      await createDictionarySign({
+        title: nome.trim(),
+        description: descricao.trim() || undefined,
+        categoryId: selectedCategoryId,
+      });
+    } catch (error) {
+      Alert.alert(
+        'Erro',
+        error instanceof Error ? error.message : 'Não foi possível adicionar a palavra.'
+      );
+      return;
+    }
+
     setShowAlert(true);
     progressAnim.setValue(0);
 
@@ -248,18 +299,26 @@ export default function AddWordScreen() {
               <View style={styles.modalIndicator} />
               
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScroll}>
-                
-                {['Essenciais', 'Necessidades Básicas', 'Social e Sentimentos', 'Personalizadas'].map((cat) => (
-                  <View key={cat} style={styles.categoryGroup}>
-                    <Text style={styles.categoryGroupTitle}>{cat}</Text>
+
+                {loadingCategories ? (
+                  <View style={styles.categoryGroup}>
+                    <Text style={styles.categoryGroupTitle}>Carregando...</Text>
+                  </View>
+                ) : categories.length === 0 ? (
+                  <View style={styles.categoryGroup}>
+                    <Text style={styles.categoryGroupTitle}>Nenhuma categoria disponível.</Text>
+                  </View>
+                ) : (
+                  <View style={styles.categoryGroup}>
                     <View style={styles.iconGrid}>
-                      {ICON_OPTIONS.filter(item => item.category === cat).map((item) => (
+                      {categories.map((item) => (
                         <TouchableOpacity
                           key={item.id}
                           style={styles.iconOptionItem}
                           activeOpacity={0.7}
                           onPress={() => {
-                            setSelectedIcon(item.icon);
+                            setSelectedIcon(mapIconByKey(item.iconKey, item.slug));
+                            setSelectedCategoryId(item.id);
                             setIsModalVisible(false);
                           }}
                         >
@@ -275,14 +334,18 @@ export default function AddWordScreen() {
                               style={styles.liquidLightOverlayShortcut}
                             />
                             <View style={styles.liquidReflectionLipShortcut} />
-                            <Image source={item.icon} style={styles.cardIconImage} resizeMode="contain" />
+                            <Image
+                              source={mapIconByKey(item.iconKey, item.slug)}
+                              style={styles.cardIconImage}
+                              resizeMode="contain"
+                            />
                           </View>
-                          <Text style={styles.iconOptionLabel}>{item.label}</Text>
+                          <Text style={styles.iconOptionLabel}>{item.name}</Text>
                         </TouchableOpacity>
                       ))}
                     </View>
                   </View>
-                ))}
+                )}
 
               </ScrollView>
             </View>

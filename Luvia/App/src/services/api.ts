@@ -45,6 +45,20 @@ async function refreshAccessToken() {
   return data.token as string;
 }
 
+async function parseResponseBody(response: Response) {
+  if (response.status === 204) {
+    return null;
+  }
+
+  const text = await response.text();
+
+  if (!text) {
+    return null;
+  }
+
+  return JSON.parse(text);
+}
+
 export async function apiFetch<T>(
   path: string,
   options: ApiRequestOptions = {}
@@ -80,20 +94,28 @@ export async function apiFetch<T>(
       },
     });
 
-    const retryData = await retryResponse.json();
+    const retryData = await parseResponseBody(retryResponse);
 
     if (!retryResponse.ok) {
-      throw new Error(retryData.message || 'Erro na requisição.');
+      throw new Error(
+        retryData && typeof retryData === 'object' && 'message' in retryData
+          ? String(retryData.message)
+          : 'Erro na requisição.'
+      );
     }
 
-    return retryData;
+    return retryData as T;
   }
 
-  const data = await response.json();
+  const data = await parseResponseBody(response);
 
   if (!response.ok) {
-    throw new Error(data.message || 'Erro na requisição.');
+    throw new Error(
+      data && typeof data === 'object' && 'message' in data
+        ? String(data.message)
+        : 'Erro na requisição.'
+    );
   }
 
-  return data;
+  return data as T;
 }

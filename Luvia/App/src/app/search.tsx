@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
 import { GlassView, GlassContainer } from 'expo-glass-effect';
 import { LinearGradient } from 'expo-linear-gradient';
+import { searchDictionarySigns } from '../services/dictionaryService';
 
 const BLUE = '#0A6DFF';
 const TEXT = '#111827';
@@ -31,22 +32,80 @@ const CONFIGURACOES = require('../../assets/images/Luvia/home/configuracoes.png'
 const SETA = require('../../assets/images/Luvia/dicionario/seta.png');
 const PESQUISA = require('../../assets/images/Luvia/dicionario/pesquisa.png');
 
-const DICTIONARY_ITEMS = [
-  { id: '1', title: 'Oi!', subtitle: 'Sinal para saudação matinal.', icon: ESSENCIAIS },
-  { id: '2', title: 'Tchau!', subtitle: 'Sinal para despedida.', icon: ESSENCIAIS },
-  { id: '3', title: 'Tô triste', subtitle: 'Estado de emoção.', icon: BEMESTAR },
-  { id: '4', title: 'João Pedro', subtitle: 'Nome de uma pessoa.', icon: FAVORITOS },
-  { id: '5', title: 'Guilherme', subtitle: 'Nome de uma pessoa.', icon: FAVORITOS },
-];
+function mapIconByKey(iconKey?: string | null, slug?: string) {
+  const normalizedKey = (iconKey || slug || '').toLowerCase();
+
+  if (normalizedKey.includes('favorito')) {
+    return FAVORITOS;
+  }
+
+  if (normalizedKey.includes('bem') || normalizedKey.includes('estar')) {
+    return BEMESTAR;
+  }
+
+  return ESSENCIAIS;
+}
 
 export default function SearchScreen() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [filteredItems, setFilteredItems] = useState<
+    { id: string; title: string; subtitle: string; icon: number }[]
+  >([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredItems = DICTIONARY_ITEMS.filter(
-    (item) =>
-      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.subtitle.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  useEffect(() => {
+    const query = searchQuery.trim();
+
+    if (!query) {
+      setFilteredItems([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const timeout = setTimeout(() => {
+      void (async () => {
+        setLoading(true);
+        setError(null);
+
+        try {
+          const results = await searchDictionarySigns(query);
+
+          if (cancelled) {
+            return;
+          }
+
+          setFilteredItems(
+            results.map((item) => ({
+              id: item.id,
+              title: item.title,
+              subtitle: item.description || item.example || item.category.name,
+              icon: mapIconByKey(item.category.iconKey, item.category.slug),
+            }))
+          );
+        } catch (searchError) {
+          if (cancelled) {
+            return;
+          }
+
+          setError(searchError instanceof Error ? searchError.message : 'Erro ao buscar sinais.');
+          setFilteredItems([]);
+        } finally {
+          if (!cancelled) {
+            setLoading(false);
+          }
+        }
+      })();
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [searchQuery]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -112,6 +171,26 @@ export default function SearchScreen() {
               <Text style={styles.emptyStateTitle}>Nenhuma busca recente</Text>
               <Text style={styles.emptyStateSubtitle}>Suas buscas recentes aparecerão aqui.</Text>
             </View>
+          ) : loading ? (
+            <View style={styles.emptyStateContainer}>
+              <Image
+                source={PESQUISA}
+                style={styles.emptyStateIcon}
+                resizeMode="contain"
+              />
+              <Text style={styles.emptyStateTitle}>Carregando...</Text>
+              <Text style={styles.emptyStateSubtitle}>Buscando sinais no dicionário.</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.emptyStateContainer}>
+              <Image
+                source={PESQUISA}
+                style={styles.emptyStateIcon}
+                resizeMode="contain"
+              />
+              <Text style={styles.emptyStateTitle}>Não foi possível buscar.</Text>
+              <Text style={styles.emptyStateSubtitle}>{error}</Text>
+            </View>
           ) : filteredItems.length === 0 ? (
             <View style={styles.emptyStateContainer}>
               <Image
@@ -121,7 +200,7 @@ export default function SearchScreen() {
               />
               <Text style={styles.emptyStateTitle}>Nenhum resultado encontrado.</Text>
               <Text style={styles.emptyStateSubtitle}>
-                Não foi encontrado nenhum resultado para a busca "{searchQuery}".
+                {`Não foi encontrado nenhum resultado para a busca "${searchQuery}".`}
               </Text>
             </View>
           ) : (

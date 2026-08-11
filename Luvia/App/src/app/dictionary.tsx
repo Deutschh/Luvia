@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,13 @@ import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
 import { GlassView, GlassContainer } from 'expo-glass-effect';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useIsFocused } from '@react-navigation/native';
+import {
+  type DictionaryCategory,
+  getDictionaryCategories,
+  getDictionarySigns,
+  getFavoriteSigns,
+} from '../services/dictionaryService';
 
 const BLUE = '#0A6DFF';
 const TEXT = '#111827';
@@ -30,18 +37,87 @@ const CONFIGURACOES = require('../../assets/images/Luvia/home/configuracoes.png'
 const PESQUISA = require('../../assets/images/Luvia/dicionario/pesquisa.png');
 const SETA = require('../../assets/images/Luvia/dicionario/seta.png');
 
-const CATEGORIES = ['Todas', 'Favoritos', 'Saudações', 'Escola'];
+function mapIconByKey(iconKey?: string | null, slug?: string) {
+  const normalizedKey = (iconKey || slug || '').toLowerCase();
 
-const DICTIONARY_ITEMS = [
-  { id: '1', title: 'Oi!', subtitle: 'Sinal para saudação matinal.', icon: ESSENCIAIS },
-  { id: '2', title: 'Tchau!', subtitle: 'Sinal para despedida.', icon: ESSENCIAIS },
-  { id: '3', title: 'Tô triste', subtitle: 'Estado de emoção.', icon: BEMESTAR },
-  { id: '4', title: 'João Pedro', subtitle: 'Nome de uma pessoa.', icon: FAVORITOS },
-  { id: '5', title: 'Guilherme', subtitle: 'Nome de uma pessoa.', icon: FAVORITOS },
-];
+  if (normalizedKey.includes('favorito')) {
+    return FAVORITOS;
+  }
+
+  if (normalizedKey.includes('bem') || normalizedKey.includes('estar')) {
+    return BEMESTAR;
+  }
+
+  return ESSENCIAIS;
+}
 
 export default function DictionaryScreen() {
-  const [activeCategory, setActiveCategory] = useState('Todas');
+  const isFocused = useIsFocused();
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [categories, setCategories] = useState<DictionaryCategory[]>([]);
+  const [items, setItems] = useState<
+    { id: string; title: string; subtitle: string; icon: number }[]
+  >([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadDictionary() {
+      if (!isFocused) {
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const [categoriesData, signsData] = await Promise.all([
+          getDictionaryCategories(),
+          activeCategory === 'favoritos'
+            ? getFavoriteSigns()
+            : getDictionarySigns(activeCategory === 'all' ? undefined : activeCategory),
+        ]);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setCategories(categoriesData);
+        setItems(
+          signsData.map((item) => ({
+            id: item.id,
+            title: item.title,
+            subtitle: item.description || item.example || item.category.name,
+            icon: mapIconByKey(item.category.iconKey, item.category.slug),
+          }))
+        );
+      } catch (loadError) {
+        if (!isMounted) {
+          return;
+        }
+
+        setError(loadError instanceof Error ? loadError.message : 'Erro ao carregar dicionário.');
+        setItems([]);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadDictionary();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeCategory, isFocused]);
+
+  const categoryOptions = [
+    { id: 'all', name: 'Todas', slug: 'all' },
+    ...categories,
+  ];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -80,13 +156,13 @@ export default function DictionaryScreen() {
             style={{ overflow: 'visible' }}
             contentContainerStyle={styles.categoriesContainer}
           >
-            {CATEGORIES.map((category, index) => {
-              const isActive = activeCategory === category;
+            {categoryOptions.map((category, index) => {
+              const isActive = activeCategory === category.slug;
               return (
                 <TouchableOpacity
-                  key={index}
+                  key={category.id || index}
                   activeOpacity={0.85}
-                  onPress={() => setActiveCategory(category)}
+                  onPress={() => setActiveCategory(category.slug)}
                   style={isActive ? styles.pillActiveWrapper : styles.pillInactiveWrapper}
                 >
                   {isActive ? (
@@ -107,7 +183,7 @@ export default function DictionaryScreen() {
                   )}
                   
                   <Text style={isActive ? styles.categoryTextActive : styles.categoryTextInactive}>
-                    {category}
+                    {category.name}
                   </Text>
                 </TouchableOpacity>
               );
@@ -120,50 +196,58 @@ export default function DictionaryScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContainer}
         >
-          {DICTIONARY_ITEMS.map((item) => (
-            <TouchableOpacity key={item.id} style={styles.card} activeOpacity={0.7}>
-              
-              {/* FUNDO LIQUID GLASS DO CARD */}
-              <GlassContainer style={styles.liquidContainerShapeWhite40}>
-                <GlassView style={styles.liquidBaseBlurWhite} />
-              </GlassContainer>
-              <LinearGradient
-                colors={['rgba(255, 255, 255, 0.6)', 'rgba(255, 255, 255, 0.05)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.liquidLightOverlayWhite40}
-              />
-              <View style={styles.liquidReflectionLipWhite40} />
-
-              <View style={styles.cardIconWrapper}>
-                <GlassContainer style={styles.liquidContainerShapeShortcut}>
-                  <GlassView style={styles.liquidBaseBlur} />
+          {loading ? (
+            <Text style={styles.cardSubtitle}>Carregando...</Text>
+          ) : error ? (
+            <Text style={styles.cardSubtitle}>{error}</Text>
+          ) : items.length === 0 ? (
+            <Text style={styles.cardSubtitle}>Nenhum sinal encontrado.</Text>
+          ) : (
+            items.map((item) => (
+              <TouchableOpacity key={item.id} style={styles.card} activeOpacity={0.7}>
+                
+                {/* FUNDO LIQUID GLASS DO CARD */}
+                <GlassContainer style={styles.liquidContainerShapeWhite40}>
+                  <GlassView style={styles.liquidBaseBlurWhite} />
                 </GlassContainer>
-
                 <LinearGradient
-                  colors={[
-                    'rgba(255, 255, 255, 0.75)', 
-                    'rgba(0, 145, 255, 0.95)',   
-                    '#0091FF',                   
-                    'rgba(0, 145, 255, 0.35)'  
-                  ]}
-                  locations={[0, 0.25, 0.65, 1]}
+                  colors={['rgba(255, 255, 255, 0.6)', 'rgba(255, 255, 255, 0.05)']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
-                  style={styles.liquidLightOverlayShortcut}
+                  style={styles.liquidLightOverlayWhite40}
                 />
+                <View style={styles.liquidReflectionLipWhite40} />
 
-                <View style={styles.liquidReflectionLipShortcut} />
+                <View style={styles.cardIconWrapper}>
+                  <GlassContainer style={styles.liquidContainerShapeShortcut}>
+                    <GlassView style={styles.liquidBaseBlur} />
+                  </GlassContainer>
 
-                <Image source={item.icon} style={styles.cardIconImage} resizeMode="contain" />
-              </View>
-              <View style={styles.cardTextContainer}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
-              </View>
-              <Image source={SETA} style={styles.arrowIcon} resizeMode="contain" />
-            </TouchableOpacity>
-          ))}
+                  <LinearGradient
+                    colors={[
+                      'rgba(255, 255, 255, 0.75)', 
+                      'rgba(0, 145, 255, 0.95)',   
+                      '#0091FF',                   
+                      'rgba(0, 145, 255, 0.35)'  
+                    ]}
+                    locations={[0, 0.25, 0.65, 1]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.liquidLightOverlayShortcut}
+                  />
+
+                  <View style={styles.liquidReflectionLipShortcut} />
+
+                  <Image source={item.icon} style={styles.cardIconImage} resizeMode="contain" />
+                </View>
+                <View style={styles.cardTextContainer}>
+                  <Text style={styles.cardTitle}>{item.title}</Text>
+                  <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
+                </View>
+                <Image source={SETA} style={styles.arrowIcon} resizeMode="contain" />
+              </TouchableOpacity>
+            ))
+          )}
         </ScrollView>
 
       </View>

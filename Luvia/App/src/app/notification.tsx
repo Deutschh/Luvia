@@ -94,7 +94,7 @@ function getGradientColors(colorHex: string) {
       `rgba(${r}, ${g}, ${b}, 0.95)`, 
       colorHex, 
       `rgba(${r}, ${g}, ${b}, 0.35)`
-    ]
+    ] as const,
   };
 }
 
