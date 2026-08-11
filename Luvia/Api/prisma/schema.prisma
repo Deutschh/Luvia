@@ -17,19 +17,28 @@ enum AuthProvider {
   GOOGLE
 }
 
+enum SignSource {
+  SYSTEM
+  USER
+  MOCK
+  IOT
+}
+
 model User {
-  id            String         @id @default(uuid())
-  name          String
-  phone         String?
-  email         String         @unique
-  googleId      String?        @unique
-  avatarUrl     String?
-  authProvider  AuthProvider   @default(EMAIL)
-  password      String?
-  role          UserRole       @default(USER)
-  refreshTokens RefreshToken[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id              String               @id @default(uuid())
+  name            String
+  phone           String?
+  email           String               @unique
+  googleId        String?              @unique
+  avatarUrl       String?
+  authProvider    AuthProvider         @default(EMAIL)
+  password        String?
+  role            UserRole             @default(USER)
+  refreshTokens   RefreshToken[]
+  dictionarySigns DictionarySign[]     @relation("UserOwnedSigns")
+  favoriteSigns   FavoriteSign[]
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 }
 
 model RefreshToken {
@@ -42,4 +51,47 @@ model RefreshToken {
   createdAt DateTime  @default(now())
 
   @@index([userId])
+}
+
+model DictionaryCategory {
+  id          String           @id @default(uuid())
+  name        String
+  slug        String           @unique
+  description String?
+  iconKey     String?
+  signs       DictionarySign[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model DictionarySign {
+  id          String             @id @default(uuid())
+  title       String
+  description String?
+  example     String?
+  categoryId  String
+  category    DictionaryCategory @relation(fields: [categoryId], references: [id])
+  ownerId     String?
+  owner       User?              @relation("UserOwnedSigns", fields: [ownerId], references: [id], onDelete: SetNull)
+  isPublic    Boolean            @default(true)
+  source      SignSource         @default(SYSTEM)
+  favorites   FavoriteSign[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([categoryId])
+  @@index([ownerId])
+}
+
+model FavoriteSign {
+  id        String         @id @default(uuid())
+  userId    String
+  signId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sign      DictionarySign @relation(fields: [signId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+
+  @@unique([userId, signId])
+  @@index([userId])
+  @@index([signId])
 }
