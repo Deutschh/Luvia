@@ -12,6 +12,7 @@ import {
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
+import { forgotPassword } from '../services/authService';
 
 const BLUE = '#0A6DFF';
 const TEXT = '#111827';
@@ -23,6 +24,7 @@ const CADEADO = require('../../assets/images/Luvia/login/cadeado.png');
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
   const [showToast, setShowToast] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const progressAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -37,20 +39,28 @@ export default function ForgotPasswordScreen() {
 
       const timer = setTimeout(() => {
         setShowToast(false);
-        router.push('/new-password');
       }, 5000);
 
       return () => clearTimeout(timer);
     }
   }, [progressAnim, showToast]);
 
-  function handleSend() {
+  async function handleSend() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       alert('Por favor, insira um e-mail válido.');
       return;
     }
-    setShowToast(true);
+
+    try {
+      setIsSending(true);
+      await forgotPassword(email.trim().toLowerCase());
+      setShowToast(true);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Não foi possível enviar as instruções. Tente novamente.');
+    } finally {
+      setIsSending(false);
+    }
   }
 
   const widthInterpolate = progressAnim.interpolate({
@@ -106,8 +116,9 @@ export default function ForgotPasswordScreen() {
             style={styles.mainButton}
             activeOpacity={0.85}
             onPress={handleSend}
+            disabled={isSending}
           >
-            <Text style={styles.mainButtonText}>Enviar</Text>
+            <Text style={styles.mainButtonText}>{isSending ? 'Enviando...' : 'Enviar'}</Text>
           </TouchableOpacity>
         </View>
 
@@ -119,7 +130,7 @@ export default function ForgotPasswordScreen() {
               </View>
               <View style={styles.toastTextWrapper}>
                 <Text style={styles.toastTitle}>Sucesso!</Text>
-                <Text style={styles.toastMessage}>O e-mail de recuperação foi enviado.</Text>
+                <Text style={styles.toastMessage}>Enviamos um link de recuperação para o seu e-mail.</Text>
               </View>
             </View>
             <Animated.View style={[styles.toastProgressBar, { width: widthInterpolate }]} />

@@ -49,3 +49,17 @@ export function getRefreshTokenExpirationDate() {
   expiresAt.setDate(expiresAt.getDate() + days);
   return expiresAt;
 }
+
+export function generatePasswordResetToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+export function hashPasswordResetToken(token: string) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+export function getPasswordResetTokenExpirationDate() {
+  const expiresAt = new Date();
+  expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+  return expiresAt;
+}

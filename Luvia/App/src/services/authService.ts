@@ -32,6 +32,10 @@ type RegisterData = {
   password: string;
 };
 
+type ForgotPasswordResponse = {
+  message: string;
+};
+
 export async function login(data: LoginData) {
   const response = await apiFetch<AuthResponse>('/auth/login', {
     method: 'POST',
@@ -56,6 +60,20 @@ export async function register(data: RegisterData) {
 
 export async function signInWithGoogle() {
   return authenticateWithGoogle();
+}
+
+export async function forgotPassword(email: string) {
+  return apiFetch<ForgotPasswordResponse>('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function resetPassword(token: string, newPassword: string) {
+  return apiFetch<ForgotPasswordResponse>('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token, newPassword }),
+  });
 }
 
 export async function getMe() {

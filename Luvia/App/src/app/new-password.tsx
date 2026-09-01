@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -10,10 +10,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
+import { resetPassword } from '../services/authService';
 
 const BLUE = '#0A6DFF';
 const TEXT = '#111827';
@@ -25,12 +27,31 @@ const OLHO = require('../../assets/images/Luvia/login/olho.png');
 const OLHODOIS = require('../../assets/images/Luvia/login/olho-dois.png');
 
 export default function NewPasswordScreen() {
+  const { token: tokenParam } = useLocalSearchParams<{ token?: string | string[] }>();
+  const token = Array.isArray(tokenParam) ? tokenParam[0] : tokenParam;
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const hasShownInvalidLinkAlert = useRef(false);
 
-  function handleConfirm() {
+  useEffect(() => {
+    if (!token && !hasShownInvalidLinkAlert.current) {
+      hasShownInvalidLinkAlert.current = true;
+      Alert.alert(
+        'Link inválido',
+        'Link de recuperação inválido ou expirado. Solicite um novo link.',
+        [{ text: 'Voltar', onPress: () => router.replace('/forgot-password') }]
+      );
+    }
+  }, [token]);
+
+  async function handleConfirm() {
+    if (!token) {
+      Alert.alert('Link inválido', 'Link de recuperação inválido ou expirado. Solicite um novo link.');
+      return;
+    }
     if (password.length < 8) {
       alert('A senha deve conter ao menos 8 caracteres.');
       return;
@@ -39,8 +60,17 @@ export default function NewPasswordScreen() {
       alert('As senhas não coincidem.');
       return;
     }
-    alert('Senha alterada com sucesso!');
-    router.replace('/login');
+
+    try {
+      setIsSubmitting(true);
+      const result = await resetPassword(token, password);
+      alert(result.message);
+      router.replace('/login');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Não foi possível redefinir a senha. Tente novamente.');
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -129,8 +159,9 @@ export default function NewPasswordScreen() {
               style={styles.mainButton}
               activeOpacity={0.85}
               onPress={handleConfirm}
+              disabled={isSubmitting}
             >
-              <Text style={styles.mainButtonText}>Confirmar</Text>
+              <Text style={styles.mainButtonText}>{isSubmitting ? 'Salvando...' : 'Confirmar'}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

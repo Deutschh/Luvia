@@ -36,7 +36,7 @@ const AZULDIREITA = require('../../assets/images/Luvia/home/direitaAzul.png');
 export default function SettingsScreen() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isHapticEnabled, setIsHapticEnabled] = useState(true);
-  const [profileName, setProfileName] = useState('Felipe Vivêncio');
+  const [profileName, setProfileName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const { signOut } = useAuth();
 

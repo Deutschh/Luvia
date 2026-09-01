@@ -40,6 +40,7 @@ model User {
   password        String?
   role            UserRole             @default(USER)
   refreshTokens   RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
   dictionaryCategories DictionaryCategory[] @relation("UserOwnedCategories")
   dictionarySigns DictionarySign[]     @relation("UserOwnedSigns")
   favoriteSigns   FavoriteSign[]
@@ -58,6 +59,19 @@ model RefreshToken {
   createdAt DateTime  @default(now())
 
   @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model DictionaryCategory {

@@ -36,9 +36,9 @@ const MUTED = '#9CA3AF';
 const BORDER = '#888E9740';
 const BRANCO = '#FFFFFF';
 
-const INITIAL_NAME = 'Felipe Vivêncio';
-const INITIAL_EMAIL = 'felipevivenciorodrigues@gmail.com';
-const INITIAL_PHONE = '(11) 93947-0383';
+const INITIAL_NAME = '';
+const INITIAL_EMAIL = '';
+const INITIAL_PHONE = '';
 const PERFIL = require('../../assets/images/Luvia/profile/profile.png');
 const EDITAR = require('../../assets/images/Luvia/home/editar.png');
 const OLHO = require('../../assets/images/Luvia/login/olho.png');
@@ -394,7 +394,7 @@ export default function ProfileScreen() {
                 <Text style={styles.forgotText}>Esqueceu a senha?</Text>
               </TouchableOpacity>
             </View>
-
+            
             <View style={styles.footer}>
               <TouchableOpacity
                 style={[styles.mainButton, !hasChanges && styles.mainButtonDisabled]}
