@@ -22,6 +22,7 @@ const TEXT = '#111827';
 const MUTED = '#9CA3AF';
 const BRANCO = '#FFFFFF';
 
+const SOCIAIS = require('../../assets/images/Luvia/home/sociais.png');
 const ESSENCIAIS = require('../../assets/images/Luvia/home/essenciais.png');
 const FAVORITOS = require('../../assets/images/Luvia/home/favorito.png');
 const BEMESTAR = require('../../assets/images/Luvia/home/bem-estar.png');
@@ -37,6 +38,10 @@ function mapIconByKey(iconKey?: string | null, slug?: string) {
 
   if (normalizedKey.includes('favorito')) {
     return FAVORITOS;
+  }
+
+  if (normalizedKey.includes('sociais') || normalizedKey.includes('saudacoes')) {
+    return SOCIAIS;
   }
 
   if (normalizedKey.includes('bem') || normalizedKey.includes('estar')) {

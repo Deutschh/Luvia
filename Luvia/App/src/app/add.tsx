@@ -21,6 +21,7 @@ import { GlassView, GlassContainer } from 'expo-glass-effect';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   type DictionaryCategory,
+  createDictionaryCategory,
   createDictionarySign,
   getDictionaryCategories,
 } from '../services/dictionaryService';
@@ -38,26 +39,38 @@ const EDITAR = require('../../assets/images/Luvia/dicionario/editar.png');
 const EMERGENCIA = require('../../assets/images/Luvia/dicionario/emergencia.png');
 const SETA = require('../../assets/images/Luvia/dicionario/seta.png');
 
-function mapIconByKey(iconKey?: string | null, slug?: string) {
-  const normalizedKey = (iconKey || slug || '').toLowerCase();
+function mapCategoryIcon(iconKey?: string | null) {
+  const normalizedKey = (iconKey || '').replace(/-/g, '_').toUpperCase();
 
-  if (normalizedKey.includes('favorito')) {
+  if (normalizedKey.includes('FAVORITO')) {
     return FAVORITOS;
   }
 
-  if (normalizedKey.includes('saud')) {
-    return SOCIAIS;
-  }
-
-  if (normalizedKey.includes('emerg')) {
-    return EMERGENCIA;
-  }
-
-  if (normalizedKey.includes('bem') || normalizedKey.includes('estar')) {
+  if (normalizedKey.includes('BEM_ESTAR')) {
     return BEMESTAR;
   }
 
-  return ESSENCIAIS;
+  if (normalizedKey.includes('SOCIAIS') || normalizedKey.includes('SAUDACOES')) {
+    return SOCIAIS;
+  }
+
+  if (normalizedKey.includes('EMERGENCIA')) {
+    return EMERGENCIA;
+  }
+
+  if (normalizedKey.includes('CUSTOM')) {
+    return EDITAR;
+  }
+
+  if (normalizedKey.includes('ESSENCIAIS')) {
+    return ESSENCIAIS;
+  }
+
+  return EDITAR;
+}
+
+function isFavoritesCategory(category: Pick<DictionaryCategory, 'slug' | 'iconKey'>) {
+  return category.slug === 'favoritos' || category.iconKey === 'FAVORITOS';
 }
 
 export default function AddWordScreen() {
@@ -66,11 +79,16 @@ export default function AddWordScreen() {
   const [selectedIcon, setSelectedIcon] = useState(EDITAR);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isCreateCategoryModalVisible, setIsCreateCategoryModalVisible] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
   const [categories, setCategories] = useState<DictionaryCategory[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [creatingCategory, setCreatingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
 
   const progressAnim = useState(new Animated.Value(0))[0];
+  const selectedCategory = categories.find((item) => item.id === selectedCategoryId) ?? null;
 
   useEffect(() => {
     let isMounted = true;
@@ -83,7 +101,7 @@ export default function AddWordScreen() {
           return;
         }
 
-        setCategories(response);
+        setCategories(response.filter((category) => !isFavoritesCategory(category)));
       } catch (error) {
         if (isMounted) {
           Alert.alert(
@@ -106,6 +124,10 @@ export default function AddWordScreen() {
   }, []);
 
   async function handleAddWord() {
+    if (saving) {
+      return;
+    }
+
     if (!selectedCategoryId) {
       Alert.alert('Categoria', 'Selecione uma categoria.');
       return;
@@ -117,12 +139,15 @@ export default function AddWordScreen() {
     }
 
     try {
+      setSaving(true);
+
       await createDictionarySign({
         title: nome.trim(),
         description: descricao.trim() || undefined,
         categoryId: selectedCategoryId,
       });
     } catch (error) {
+      setSaving(false);
       Alert.alert(
         'Erro',
         error instanceof Error ? error.message : 'Não foi possível adicionar a palavra.'
@@ -138,9 +163,44 @@ export default function AddWordScreen() {
       duration: 3000,
       useNativeDriver: false,
     }).start(() => {
+      setSaving(false);
       setShowAlert(false);
       router.back();
     });
+  }
+
+  async function handleCreateCategory() {
+    if (creatingCategory) {
+      return;
+    }
+
+    if (!newCategoryName.trim()) {
+      Alert.alert('Categoria', 'Informe o nome da categoria.');
+      return;
+    }
+
+    try {
+      setCreatingCategory(true);
+
+      const createdCategory = await createDictionaryCategory({
+        name: newCategoryName.trim(),
+      });
+
+      if (!isFavoritesCategory(createdCategory)) {
+        setCategories((currentCategories) => [...currentCategories, createdCategory]);
+      }
+      setSelectedCategoryId(createdCategory.id);
+      setSelectedIcon(mapCategoryIcon(createdCategory.iconKey));
+      setNewCategoryName('');
+      setIsCreateCategoryModalVisible(false);
+    } catch (error) {
+      Alert.alert(
+        'Erro',
+        error instanceof Error ? error.message : 'Não foi possível criar a categoria.'
+      );
+    } finally {
+      setCreatingCategory(false);
+    }
   }
 
   const progressWidth = progressAnim.interpolate({
@@ -215,8 +275,12 @@ export default function AddWordScreen() {
             </View>
 
             <View style={styles.cardTextContainer}>
-              <Text style={styles.cardTitle}>Escolha a categoria</Text>
-              <Text style={styles.cardSubtitle}>Selecione um ícone para o atalho.</Text>
+              <Text style={styles.cardTitle}>
+                {selectedCategory?.name || 'Escolha a categoria'}
+              </Text>
+              <Text style={styles.cardSubtitle}>
+                {selectedCategory?.description || 'Selecione um ícone para o atalho.'}
+              </Text>
             </View>
             <Image source={SETA} style={styles.arrowIcon} resizeMode="contain" />
           </TouchableOpacity>
@@ -283,7 +347,7 @@ export default function AddWordScreen() {
             </View>
           ) : (
             <TouchableOpacity style={styles.addButton} activeOpacity={0.85} onPress={handleAddWord}>
-              <Text style={styles.addButtonText}>Adicionar</Text>
+              <Text style={styles.addButtonText}>{saving ? 'Salvando...' : 'Adicionar'}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -311,13 +375,38 @@ export default function AddWordScreen() {
                 ) : (
                   <View style={styles.categoryGroup}>
                     <View style={styles.iconGrid}>
+                      <TouchableOpacity
+                        style={styles.iconOptionItem}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          setIsModalVisible(false);
+                          setIsCreateCategoryModalVisible(true);
+                        }}
+                      >
+                        <View style={styles.cardIconWrapper}>
+                          <GlassContainer style={styles.liquidContainerShapeShortcut}>
+                            <GlassView style={styles.liquidBaseBlur} />
+                          </GlassContainer>
+                          <LinearGradient
+                            colors={['rgba(255, 255, 255, 0.75)', 'rgba(0, 145, 255, 0.95)', '#0091FF', 'rgba(0, 145, 255, 0.35)']}
+                            locations={[0, 0.25, 0.65, 1]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.liquidLightOverlayShortcut}
+                          />
+                          <View style={styles.liquidReflectionLipShortcut} />
+                          <Feather name="plus" size={24} color={BRANCO} />
+                        </View>
+                        <Text style={styles.iconOptionLabel}>Criar</Text>
+                      </TouchableOpacity>
+
                       {categories.map((item) => (
                         <TouchableOpacity
                           key={item.id}
                           style={styles.iconOptionItem}
                           activeOpacity={0.7}
                           onPress={() => {
-                            setSelectedIcon(mapIconByKey(item.iconKey, item.slug));
+                            setSelectedIcon(mapCategoryIcon(item.iconKey));
                             setSelectedCategoryId(item.id);
                             setIsModalVisible(false);
                           }}
@@ -335,7 +424,7 @@ export default function AddWordScreen() {
                             />
                             <View style={styles.liquidReflectionLipShortcut} />
                             <Image
-                              source={mapIconByKey(item.iconKey, item.slug)}
+                              source={mapCategoryIcon(item.iconKey)}
                               style={styles.cardIconImage}
                               resizeMode="contain"
                             />
@@ -348,6 +437,55 @@ export default function AddWordScreen() {
                 )}
 
               </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal
+          visible={isCreateCategoryModalVisible}
+          animationType="fade"
+          transparent={true}
+          onRequestClose={() => setIsCreateCategoryModalVisible(false)}
+        >
+          <View style={styles.createCategoryModalOverlay}>
+            <View style={styles.createCategoryModalCard}>
+              <Text style={styles.createCategoryModalTitle}>Nova categoria</Text>
+
+              <View style={styles.inputWrapper}>
+                <Feather name="plus" size={18} color={MUTED} />
+                <TextInput
+                  style={styles.input}
+                  value={newCategoryName}
+                  onChangeText={setNewCategoryName}
+                  placeholder="Nome da categoria"
+                  placeholderTextColor={MUTED}
+                  autoFocus={true}
+                  autoCorrect={false}
+                />
+              </View>
+
+              <View style={styles.createCategoryActions}>
+                <TouchableOpacity
+                  style={styles.createCategorySecondaryButton}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setNewCategoryName('');
+                    setIsCreateCategoryModalVisible(false);
+                  }}
+                >
+                  <Text style={styles.createCategorySecondaryText}>Cancelar</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.createCategoryPrimaryButton}
+                  activeOpacity={0.8}
+                  onPress={handleCreateCategory}
+                >
+                  <Text style={styles.createCategoryPrimaryText}>
+                    {creatingCategory ? 'Criando...' : 'Criar'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Modal>
@@ -663,5 +801,56 @@ const styles = StyleSheet.create({
     fontFamily: 'Mazzard',
     color: MUTED,
     textAlign: 'center',
+  },
+  createCategoryModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 34,
+  },
+  createCategoryModalCard: {
+    width: '100%',
+    backgroundColor: BRANCO,
+    borderRadius: 28,
+    padding: 24,
+  },
+  createCategoryModalTitle: {
+    fontSize: 18,
+    fontFamily: 'Poppins SemiBold',
+    color: TEXT,
+    marginBottom: 16,
+  },
+  createCategoryActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 8,
+  },
+  createCategorySecondaryButton: {
+    height: 44,
+    paddingHorizontal: 18,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E5E7EB',
+  },
+  createCategorySecondaryText: {
+    color: TEXT,
+    fontSize: 14,
+    fontFamily: 'Mazzard',
+  },
+  createCategoryPrimaryButton: {
+    height: 44,
+    paddingHorizontal: 18,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: BLUE,
+  },
+  createCategoryPrimaryText: {
+    color: BRANCO,
+    fontSize: 14,
+    fontFamily: 'Mazzard',
   },
 });

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,12 +10,25 @@ import {
   Platform,
   ScrollView,
   SafeAreaView,
+  Alert,
+  Modal,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
 import { GlassView, GlassContainer } from 'expo-glass-effect';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
+import {
+  deleteAvatar,
+  getMe,
+  normalizeAvatarUrl,
+  updateMe,
+  updatePassword,
+  uploadAvatar,
+  type AvatarUploadFile,
+  type UserProfile,
+} from '../services/userService';
 
 const BLUE = '#0A6DFF';
 const TEXT = '#111827';
@@ -26,29 +39,247 @@ const BRANCO = '#FFFFFF';
 const INITIAL_NAME = 'Felipe Vivêncio';
 const INITIAL_EMAIL = 'felipevivenciorodrigues@gmail.com';
 const INITIAL_PHONE = '(11) 93947-0383';
-const INITIAL_PASSWORD = 'senha123';
-
 const PERFIL = require('../../assets/images/Luvia/profile/profile.png');
 const EDITAR = require('../../assets/images/Luvia/home/editar.png');
 const OLHO = require('../../assets/images/Luvia/login/olho.png');
 const OLHODOIS = require('../../assets/images/Luvia/login/olho-dois.png');
 
+function sanitizePhone(value: string) {
+  return value.replace(/\D/g, '').slice(0, 11);
+}
+
+function formatPhone(value: string) {
+  const digits = sanitizePhone(value);
+
+  if (digits.length <= 2) {
+    return digits ? `(${digits}` : '';
+  }
+
+  if (digits.length <= 6) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  }
+
+  if (digits.length <= 10) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
 export default function ProfileScreen() {
   const [name, setName] = useState(INITIAL_NAME);
+  const [initialName, setInitialName] = useState(INITIAL_NAME);
   const [email, setEmail] = useState(INITIAL_EMAIL);
   const [phone, setPhone] = useState(INITIAL_PHONE);
-  const [password, setPassword] = useState(INITIAL_PASSWORD);
-  const [showPassword, setShowPassword] = useState(false);
+  const [initialPhone, setInitialPhone] = useState(INITIAL_PHONE);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasPassword, setHasPassword] = useState(true);
+  const [isPasswordModalVisible, setIsPasswordModalVisible] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
-  const hasChanges = 
-    name !== INITIAL_NAME || 
-    email !== INITIAL_EMAIL || 
-    phone !== INITIAL_PHONE || 
-    password !== INITIAL_PASSWORD;
+  const hasChanges = name !== initialName || phone !== initialPhone;
 
-  function handleSaveChanges() {
-    alert('Alterações salvas com sucesso!');
-    router.back();
+  useEffect(() => {
+    let isMounted = true;
+
+    void getMe()
+      .then((user) => {
+        if (!isMounted) {
+          return;
+        }
+
+        applyUserProfile(user);
+      })
+      .catch(() => {
+        // Keep the screen's existing local values if the profile cannot be loaded.
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  function applyUserProfile(user: UserProfile) {
+    setName(user.name);
+    setInitialName(user.name);
+    setEmail(user.email);
+    const formattedPhone = formatPhone(user.phone ?? '');
+    setPhone(formattedPhone);
+    setInitialPhone(formattedPhone);
+    setAvatarUrl(user.avatarUrl);
+
+    if (typeof user.hasPassword === 'boolean') {
+      setHasPassword(user.hasPassword);
+    }
+  }
+
+  function getFriendlyErrorMessage(error: unknown, fallback: string) {
+    if (error instanceof Error) {
+      const message = error.message.toLowerCase();
+
+      if (message.includes('refresh token') || message.includes('token expirado')) {
+        return 'Sua sessão expirou. Entre novamente para continuar.';
+      }
+
+      return error.message;
+    }
+
+    return fallback;
+  }
+
+  function handlePhoneChange(value: string) {
+    setPhone(formatPhone(value));
+  }
+
+  async function handleSaveChanges() {
+    if (isSaving) {
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      const user = await updateMe({
+        name: name.trim(),
+        phone: phone.trim() || null,
+      });
+      applyUserProfile(user);
+      Alert.alert('Sucesso', 'Alterações salvas com sucesso.');
+      router.back();
+    } catch (error) {
+      Alert.alert('Não foi possível salvar', getFriendlyErrorMessage(error, 'Tente novamente em instantes.'));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function getImageFileType(asset: ImagePicker.ImagePickerAsset): AvatarUploadFile['type'] | null {
+    if (asset.mimeType === 'image/jpeg' || asset.mimeType === 'image/png' || asset.mimeType === 'image/webp') {
+      return asset.mimeType;
+    }
+
+    const extension = asset.uri.split('?')[0].split('.').pop()?.toLowerCase();
+
+    if (extension === 'jpg' || extension === 'jpeg') {
+      return 'image/jpeg';
+    }
+
+    if (extension === 'png') {
+      return 'image/png';
+    }
+
+    return extension === 'webp' ? 'image/webp' : null;
+  }
+
+  async function handlePickAvatar() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert('Permissão necessária', 'Permita o acesso às fotos para trocar sua imagem de perfil.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (result.canceled) {
+      return;
+    }
+
+    const asset = result.assets[0];
+    const type = getImageFileType(asset);
+
+    if (!type) {
+      Alert.alert('Imagem inválida', 'Escolha uma imagem JPEG, PNG ou WebP.');
+      return;
+    }
+
+    try {
+      const user = await uploadAvatar({
+        uri: asset.uri,
+        name: asset.fileName || `avatar.${type.split('/')[1]}`,
+        type,
+      });
+      applyUserProfile(user);
+      Alert.alert('Sucesso', 'Foto de perfil atualizada com sucesso.');
+    } catch (error) {
+      Alert.alert('Não foi possível trocar a foto', getFriendlyErrorMessage(error, 'Tente novamente em instantes.'));
+    }
+  }
+
+  async function handleDeleteAvatar() {
+    try {
+      const user = await deleteAvatar();
+      applyUserProfile(user);
+      Alert.alert('Sucesso', 'Foto de perfil removida.');
+    } catch (error) {
+      Alert.alert('Não foi possível remover a foto', getFriendlyErrorMessage(error, 'Tente novamente em instantes.'));
+    }
+  }
+
+  function handleAvatarPress() {
+    if (!avatarUrl) {
+      void handlePickAvatar();
+      return;
+    }
+
+    Alert.alert('Foto de perfil', 'O que você deseja fazer?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Remover foto', style: 'destructive', onPress: () => void handleDeleteAvatar() },
+      { text: 'Trocar foto', onPress: () => void handlePickAvatar() },
+    ]);
+  }
+
+  function openPasswordModal() {
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmNewPassword('');
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmNewPassword(false);
+    setIsPasswordModalVisible(true);
+  }
+
+  async function handleUpdatePassword() {
+    if (newPassword.length < 8) {
+      Alert.alert('Senha inválida', 'A nova senha deve ter pelo menos 8 caracteres.');
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      Alert.alert('Senha inválida', 'A nova senha e a confirmação devem ser iguais.');
+      return;
+    }
+
+    if (hasPassword && !currentPassword) {
+      Alert.alert('Senha atual obrigatória', 'Informe sua senha atual para continuar.');
+      return;
+    }
+
+    try {
+      setIsUpdatingPassword(true);
+      await updatePassword({
+        ...(hasPassword ? { currentPassword } : {}),
+        newPassword,
+      });
+      setHasPassword(true);
+      setIsPasswordModalVisible(false);
+      Alert.alert('Sucesso', 'Senha atualizada com sucesso.');
+    } catch {
+      Alert.alert('Não foi possível atualizar a senha', 'Verifique os dados e tente novamente.');
+    } finally {
+      setIsUpdatingPassword(false);
+    }
   }
 
   return (
@@ -79,11 +310,11 @@ export default function ProfileScreen() {
             <View style={styles.avatarSection}>
               <View style={styles.avatarWrapper}>
                 <Image 
-                  source={PERFIL} 
+                  source={avatarUrl ? { uri: normalizeAvatarUrl(avatarUrl) } : PERFIL}
                   style={styles.profileAvatar} 
                   resizeMode="cover" 
                 />
-                <TouchableOpacity style={styles.editBadgeWrapper} activeOpacity={0.85}>
+                <TouchableOpacity style={styles.editBadgeWrapper} activeOpacity={0.85} onPress={handleAvatarPress}>
                   <GlassContainer style={StyleSheet.absoluteFill}>
                     <GlassView style={styles.miniGlassEffect} />
                   </GlassContainer>
@@ -114,7 +345,7 @@ export default function ProfileScreen() {
                 <TextInput
                   style={styles.input}
                   value={email}
-                  onChangeText={setEmail}
+                  editable={false}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   placeholderTextColor={MUTED}
@@ -126,32 +357,34 @@ export default function ProfileScreen() {
                 <TextInput
                   style={styles.input}
                   value={phone}
-                  onChangeText={setPhone}
+                  onChangeText={handlePhoneChange}
                   keyboardType="phone-pad"
+                  maxLength={15}
                   placeholderTextColor={MUTED}
                 />
               </View>
 
               <Text style={styles.label}>Senha</Text>
-              <View style={styles.inputWrapper}>
+              <TouchableOpacity style={styles.inputWrapper} activeOpacity={1} onPress={openPasswordModal}>
                 <TextInput
                   style={styles.input}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
+                  value=""
+                  editable={false}
+                  pointerEvents="none"
+                  placeholder="Alterar senha"
                   placeholderTextColor={MUTED}
                 />
                 <TouchableOpacity
                   activeOpacity={0.7}
-                  onPress={() => setShowPassword((current) => !current)}
+                  onPress={openPasswordModal}
                 >
                   <Image 
-                    source={showPassword ? OLHODOIS : OLHO} 
+                    source={OLHO}
                     style={styles.eyePngIcon} 
                     resizeMode="contain"
                   />
                 </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
 
               <TouchableOpacity 
                 activeOpacity={0.75} 
@@ -174,6 +407,87 @@ export default function ProfileScreen() {
             </View>
           </ScrollView>
         </View>
+
+        <Modal
+          visible={isPasswordModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setIsPasswordModalVisible(false)}
+        >
+          <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 34, backgroundColor: 'rgba(17, 24, 39, 0.35)' }}>
+            <View style={{ backgroundColor: BRANCO, borderRadius: 28, padding: 24 }}>
+              <Text style={[styles.headerTitle, { textAlign: 'center', marginBottom: 24 }]}>Alterar senha</Text>
+
+              {hasPassword && (
+                <>
+                  <Text style={styles.label}>Senha atual</Text>
+                  <View style={styles.inputWrapper}>
+                    <TextInput
+                      style={styles.input}
+                      value={currentPassword}
+                      onChangeText={setCurrentPassword}
+                      secureTextEntry={!showCurrentPassword}
+                      autoCapitalize="none"
+                      placeholderTextColor={MUTED}
+                    />
+                    <TouchableOpacity activeOpacity={0.7} onPress={() => setShowCurrentPassword((value) => !value)}>
+                      <Image source={showCurrentPassword ? OLHODOIS : OLHO} style={styles.eyePngIcon} resizeMode="contain" />
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+
+              <Text style={styles.label}>Nova senha</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={styles.input}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  secureTextEntry={!showNewPassword}
+                  autoCapitalize="none"
+                  placeholderTextColor={MUTED}
+                />
+                <TouchableOpacity activeOpacity={0.7} onPress={() => setShowNewPassword((value) => !value)}>
+                  <Image source={showNewPassword ? OLHODOIS : OLHO} style={styles.eyePngIcon} resizeMode="contain" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.label}>Confirmar nova senha</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={styles.input}
+                  value={confirmNewPassword}
+                  onChangeText={setConfirmNewPassword}
+                  secureTextEntry={!showConfirmNewPassword}
+                  autoCapitalize="none"
+                  placeholderTextColor={MUTED}
+                />
+                <TouchableOpacity activeOpacity={0.7} onPress={() => setShowConfirmNewPassword((value) => !value)}>
+                  <Image source={showConfirmNewPassword ? OLHODOIS : OLHO} style={styles.eyePngIcon} resizeMode="contain" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <TouchableOpacity
+                  style={{ flex: 1, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: BLUE }}
+                  activeOpacity={0.85}
+                  onPress={() => setIsPasswordModalVisible(false)}
+                  disabled={isUpdatingPassword}
+                >
+                  <Text style={[styles.mainButtonText, { color: BLUE }]}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.mainButton, { flex: 1 }]}
+                  activeOpacity={0.85}
+                  onPress={handleUpdatePassword}
+                  disabled={isUpdatingPassword}
+                >
+                  <Text style={styles.mainButtonText}>Salvar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,15 @@ import {
   ScrollView,
   Platform,
   Switch,
+  Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Feather } from '@expo/vector-icons';
 import { GlassView, GlassContainer } from 'expo-glass-effect';
 import { LinearGradient } from 'expo-linear-gradient';
+import { getMySettings, updateMySettings } from '../services/settingsService';
+import { getMe, normalizeAvatarUrl } from '../services/userService';
+import { useAuth } from '../contexts/AuthContext';
 
 const PERFIL = require('../../assets/images/Luvia/profile/profile.png');
 
@@ -33,6 +36,93 @@ const AZULDIREITA = require('../../assets/images/Luvia/home/direitaAzul.png');
 export default function SettingsScreen() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isHapticEnabled, setIsHapticEnabled] = useState(true);
+  const [profileName, setProfileName] = useState('Felipe Vivêncio');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const { signOut } = useAuth();
+
+  function getFriendlyErrorMessage(error: unknown, fallback: string) {
+    if (error instanceof Error) {
+      const message = error.message.toLowerCase();
+
+      if (message.includes('refresh token') || message.includes('token expirado')) {
+        return 'Sua sessão expirou. Entre novamente para continuar.';
+      }
+
+      return error.message;
+    }
+
+    return fallback;
+  }
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void getMe()
+      .then((user) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setProfileName(user.name);
+        setAvatarUrl(user.avatarUrl);
+      })
+      .catch((error) => {
+        if (isMounted) {
+          Alert.alert('Não foi possível carregar o perfil', getFriendlyErrorMessage(error, 'Tente novamente em instantes.'));
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void getMySettings()
+      .then((settings) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setIsDarkMode(settings.darkMode);
+        setIsHapticEnabled(settings.hapticFeedback);
+      })
+      .catch((error) => {
+        // Keep the screen's existing local defaults when settings cannot be loaded.
+        if (isMounted) {
+          Alert.alert('Não foi possível carregar as configurações', getFriendlyErrorMessage(error, 'Tente novamente em instantes.'));
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  function handleDarkModeChange(value: boolean) {
+    setIsDarkMode(value);
+    void updateMySettings({ darkMode: value }).catch((error) => {
+      Alert.alert('Não foi possível salvar', getFriendlyErrorMessage(error, 'Tente novamente em instantes.'));
+    });
+  }
+
+  function handleHapticFeedbackChange(value: boolean) {
+    setIsHapticEnabled(value);
+    void updateMySettings({ hapticFeedback: value }).catch((error) => {
+      Alert.alert('Não foi possível salvar', getFriendlyErrorMessage(error, 'Tente novamente em instantes.'));
+    });
+  }
+
+  async function handleSignOut() {
+    try {
+      await signOut();
+      router.replace('/login');
+    } catch (error) {
+      Alert.alert('Não foi possível sair da conta', getFriendlyErrorMessage(error, 'Tente novamente em instantes.'));
+    }
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -67,12 +157,12 @@ export default function SettingsScreen() {
               onPress={() => router.push('/profile')}
             >
               <Image 
-                source={PERFIL} 
+                source={avatarUrl ? { uri: normalizeAvatarUrl(avatarUrl) } : PERFIL}
                 style={styles.profileAvatar} 
                 resizeMode="cover" 
               />
               <View style={styles.profileTextContainer}>
-                <Text style={styles.profileName}>Felipe Vivêncio</Text>
+                <Text style={styles.profileName}>{profileName}</Text>
                 <Text style={styles.profileSubtitle}>Visualizar perfil</Text>
               </View>
               <Image source={AZULDIREITA} style={styles.arrowright} resizeMode="contain" />
@@ -134,7 +224,7 @@ export default function SettingsScreen() {
                   trackColor={{ false: '#E5E7EB', true: BLUE }}
                   thumbColor={'#FFFFFF'}
                   ios_backgroundColor="#E5E7EB"
-                  onValueChange={() => setIsDarkMode(!isDarkMode)}
+                  onValueChange={handleDarkModeChange}
                   value={isDarkMode}
                   style={styles.switchControl}
                 />
@@ -151,7 +241,7 @@ export default function SettingsScreen() {
                   trackColor={{ false: '#E5E7EB', true: BLUE }}
                   thumbColor={'#FFFFFF'}
                   ios_backgroundColor="#E5E7EB"
-                  onValueChange={() => setIsHapticEnabled(!isHapticEnabled)}
+                  onValueChange={handleHapticFeedbackChange}
                   value={isHapticEnabled}
                   style={styles.switchControl}
                 />
@@ -162,7 +252,7 @@ export default function SettingsScreen() {
           <TouchableOpacity 
             style={styles.logoutButton} 
             activeOpacity={0.85}
-            onPress={() => router.replace('/login')}
+            onPress={handleSignOut}
           >
             <Text style={styles.logoutButtonText}>Sair da conta</Text>
           </TouchableOpacity>

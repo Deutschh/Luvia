@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Image,
   Animated,
   Platform,
+  Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -18,6 +19,7 @@ import { Feather } from '@expo/vector-icons';
 import { GlassView, GlassContainer } from 'expo-glass-effect';
 import { LinearGradient } from 'expo-linear-gradient';
 import Slider from '@react-native-community/slider';
+import { getMySettings, updateMySettings, type UpdateUserSettingsData } from '../services/settingsService';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -45,16 +47,93 @@ const TARTARUGA = require('../../assets/images/Luvia/luvas/tartaruga.png');
 const COELHO = require('../../assets/images/Luvia/luvas/coelho.png');
 const CHECK = require('../../assets/images/Luvia/luvas/check.png');
 
+function getVoiceLabel(voiceType: string) {
+  return VOICES.includes(voiceType) ? voiceType : VOICES[0];
+}
+
+function getSpeechRateFromSlider(speed: number) {
+  return 0.5 + (speed / 100) * 1.5;
+}
+
+function getSliderFromSpeechRate(speechRate: number) {
+  return ((speechRate - 0.5) / 1.5) * 100;
+}
+
 export default function VoiceSettingsScreen() {
   const [volume, setVolume] = useState(50);
   const [speed, setSpeed] = useState(50);
   const [selectedVoice, setSelectedVoice] = useState(VOICES[0]);
+  const [autoSpeak, setAutoSpeak] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
   
   const progressAnim = useState(new Animated.Value(0))[0];
 
-  function handleSavePreferences() {
+  function getFriendlyErrorMessage(error: unknown, fallback: string) {
+    if (error instanceof Error) {
+      const message = error.message.toLowerCase();
+
+      if (message.includes('refresh token') || message.includes('token expirado')) {
+        return 'Sua sessão expirou. Entre novamente para continuar.';
+      }
+
+      return error.message;
+    }
+
+    return fallback;
+  }
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void getMySettings()
+      .then((settings) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setVolume(settings.speechVolume * 100);
+        setSpeed(getSliderFromSpeechRate(settings.speechRate));
+        setSelectedVoice(getVoiceLabel(settings.voiceType));
+        setAutoSpeak(settings.autoSpeak);
+      })
+      .catch((error) => {
+        // Keep the screen's existing local defaults when settings cannot be loaded.
+        if (isMounted) {
+          Alert.alert('Não foi possível carregar as preferências de voz', getFriendlyErrorMessage(error, 'Tente novamente em instantes.'));
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  async function persistVoiceSettings(data: UpdateUserSettingsData, showError = false) {
+    try {
+      await updateMySettings(data);
+      return true;
+    } catch (error) {
+      if (showError) {
+        Alert.alert('Não foi possível salvar', getFriendlyErrorMessage(error, 'Tente novamente em instantes.'));
+      }
+
+      return false;
+    }
+  }
+
+  async function handleSavePreferences() {
+    const saved = await persistVoiceSettings({
+      voiceType: selectedVoice,
+      speechRate: getSpeechRateFromSlider(speed),
+      speechVolume: volume / 100,
+      autoSpeak,
+    }, true);
+
+    if (!saved) {
+      return;
+    }
+
     setShowAlert(true);
     progressAnim.setValue(0);
     
@@ -76,6 +155,7 @@ export default function VoiceSettingsScreen() {
   function selectVoice(voice: string) {
     setSelectedVoice(voice);
     toggleDropdown();
+    void persistVoiceSettings({ voiceType: voice }, true);
   }
 
   const progressWidth = progressAnim.interpolate({
@@ -119,6 +199,9 @@ export default function VoiceSettingsScreen() {
                   step={25}
                   value={volume}
                   onValueChange={setVolume}
+                  onSlidingComplete={(value) => {
+                    void persistVoiceSettings({ speechVolume: value / 100 }, true);
+                  }}
                   minimumTrackTintColor={BLUE}
                   maximumTrackTintColor={BORDER}
                   thumbTintColor={BRANCO}
@@ -148,6 +231,9 @@ export default function VoiceSettingsScreen() {
                   step={25}
                   value={speed}
                   onValueChange={setSpeed}
+                  onSlidingComplete={(value) => {
+                    void persistVoiceSettings({ speechRate: getSpeechRateFromSlider(value) }, true);
+                  }}
                   minimumTrackTintColor={BLUE}
                   maximumTrackTintColor={BORDER}
                   thumbTintColor={BRANCO}

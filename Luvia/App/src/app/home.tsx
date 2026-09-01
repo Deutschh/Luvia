@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Feather, Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { GlassView, GlassContainer } from 'expo-glass-effect';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -238,10 +238,34 @@ export default function HomeScreen() {
             </View>
 
             <View style={styles.shortcutsRow}>
-              <ShortcutItem source={FAVORITOS} label="Favoritos" />
-              <ShortcutItem source={ESSENCIAIS} label="Essenciais" />
-              <ShortcutItem source={SOCIAIS} label="Sociais" />
-              <ShortcutItem source={BEMESTAR} label="Bem-estar" />
+              <ShortcutItem
+                source={FAVORITOS}
+                label="Favoritos"
+                onPress={() =>
+                  router.push({ pathname: '/dictionary', params: { filter: 'favorites' } })
+                }
+              />
+              <ShortcutItem
+                source={ESSENCIAIS}
+                label="Essenciais"
+                onPress={() =>
+                  router.push({ pathname: '/dictionary', params: { category: 'essenciais' } })
+                }
+              />
+              <ShortcutItem
+                source={SOCIAIS}
+                label="Sociais"
+                onPress={() =>
+                  router.push({ pathname: '/dictionary', params: { category: 'sociais' } })
+                }
+              />
+              <ShortcutItem
+                source={BEMESTAR}
+                label="Bem-estar"
+                onPress={() =>
+                  router.push({ pathname: '/dictionary', params: { category: 'bem-estar' } })
+                }
+              />
             </View>
           </View>
 
@@ -305,10 +329,10 @@ export default function HomeScreen() {
   );
 }
 
-function ShortcutItem({ source, label }: { source: any; label: string }) {
+function ShortcutItem({ source, label, onPress }: { source: any; label: string; onPress?: () => void }) {
   return (
     <View style={styles.shortcutItem}>
-      <TouchableOpacity style={styles.shortcutIconWrapper} activeOpacity={0.8}>
+      <TouchableOpacity style={styles.shortcutIconWrapper} activeOpacity={0.8} onPress={onPress}>
         
         <GlassContainer style={styles.liquidContainerShapeShortcut}>
           <GlassView style={styles.liquidBaseBlur} />

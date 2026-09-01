@@ -24,6 +24,11 @@ enum SignSource {
   IOT
 }
 
+enum DictionaryCategorySource {
+  SYSTEM
+  USER
+}
+
 model User {
   id              String               @id @default(uuid())
   name            String
@@ -35,8 +40,10 @@ model User {
   password        String?
   role            UserRole             @default(USER)
   refreshTokens   RefreshToken[]
+  dictionaryCategories DictionaryCategory[] @relation("UserOwnedCategories")
   dictionarySigns DictionarySign[]     @relation("UserOwnedSigns")
   favoriteSigns   FavoriteSign[]
+  settings        UserSettings?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
 }
@@ -54,19 +61,27 @@ model RefreshToken {
 }
 
 model DictionaryCategory {
-  id          String           @id @default(uuid())
-  name        String
-  slug        String           @unique
-  description String?
-  iconKey     String?
-  signs       DictionarySign[]
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  id             String                   @id @default(uuid())
+  name           String
+  normalizedName String
+  slug           String                   @unique
+  description    String?
+  iconKey        String?
+  ownerId        String?
+  owner          User?                    @relation("UserOwnedCategories", fields: [ownerId], references: [id], onDelete: SetNull)
+  source         DictionaryCategorySource @default(SYSTEM)
+  signs          DictionarySign[]
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  @@unique([ownerId, normalizedName], map: "DictionaryCategory_ownerId_normalizedName_key")
+  @@index([ownerId])
 }
 
 model DictionarySign {
   id          String             @id @default(uuid())
   title       String
+  normalizedTitle String
   description String?
   example     String?
   categoryId  String
@@ -79,6 +94,7 @@ model DictionarySign {
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
 
+  @@unique([categoryId, ownerId, normalizedTitle], map: "DictionarySign_categoryId_ownerId_normalizedTitle_key")
   @@index([categoryId])
   @@index([ownerId])
 }
@@ -94,4 +110,19 @@ model FavoriteSign {
   @@unique([userId, signId])
   @@index([userId])
   @@index([signId])
+}
+
+model UserSettings {
+  id                   String   @id @default(uuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  voiceType            String   @default("natural")
+  speechRate           Float    @default(1)
+  speechVolume         Float    @default(1)
+  autoSpeak            Boolean  @default(true)
+  hapticFeedback       Boolean  @default(true)
+  notificationsEnabled Boolean  @default(true)
+  darkMode             Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }

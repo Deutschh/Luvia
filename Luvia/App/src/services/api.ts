@@ -64,9 +64,10 @@ export async function apiFetch<T>(
   options: ApiRequestOptions = {}
 ): Promise<T> {
   const { useAuth = false, retry = true, headers, ...rest } = options;
+  const isFormDataBody = typeof FormData !== 'undefined' && rest.body instanceof FormData;
 
   const requestHeaders: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(isFormDataBody ? {} : { 'Content-Type': 'application/json' }),
     ...(headers as Record<string, string>),
   };
 

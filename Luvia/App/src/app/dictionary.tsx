@@ -9,7 +9,7 @@ import {
   ScrollView,
   Image,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
 import { GlassView, GlassContainer } from 'expo-glass-effect';
@@ -44,6 +44,10 @@ function mapIconByKey(iconKey?: string | null, slug?: string) {
     return FAVORITOS;
   }
 
+  if (normalizedKey.includes('sociais') || normalizedKey.includes('saudacoes')) {
+    return ESSENCIAIS;
+  }
+
   if (normalizedKey.includes('bem') || normalizedKey.includes('estar')) {
     return BEMESTAR;
   }
@@ -51,7 +55,12 @@ function mapIconByKey(iconKey?: string | null, slug?: string) {
   return ESSENCIAIS;
 }
 
+function getSingleParam(value?: string | string[]) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export default function DictionaryScreen() {
+  const params = useLocalSearchParams<{ filter?: string | string[]; category?: string | string[] }>();
   const isFocused = useIsFocused();
   const [activeCategory, setActiveCategory] = useState('all');
   const [categories, setCategories] = useState<DictionaryCategory[]>([]);
@@ -60,6 +69,23 @@ export default function DictionaryScreen() {
   >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const filterParam = getSingleParam(params.filter);
+    const categoryParam = getSingleParam(params.category);
+
+    if (filterParam === 'favorites') {
+      setActiveCategory('favoritos');
+      return;
+    }
+
+    if (categoryParam) {
+      setActiveCategory(categoryParam);
+      return;
+    }
+
+    setActiveCategory('all');
+  }, [params.category, params.filter]);
 
   useEffect(() => {
     let isMounted = true;

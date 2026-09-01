@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { PrismaClient, SignSource } from '@prisma/client';
+import { DictionaryCategorySource, PrismaClient, SignSource } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -23,10 +23,10 @@ const categorySeeds = [
     iconKey: 'BEM_ESTAR',
   },
   {
-    name: 'Saudações',
-    slug: 'saudacoes',
-    description: 'Cumprimentos e despedidas comuns.',
-    iconKey: 'SAUDACOES',
+    name: 'Sociais',
+    slug: 'sociais',
+    description: 'Interações sociais, cumprimentos e expressões comuns.',
+    iconKey: 'SOCIAIS',
   },
   {
     name: 'Emergência',
@@ -41,13 +41,13 @@ const signSeeds = [
     title: 'Oi!',
     description: 'Sinal para saudação inicial.',
     example: 'Oi! Tudo bem?',
-    categorySlug: 'saudacoes',
+    categorySlug: 'sociais',
   },
   {
     title: 'Tchau!',
     description: 'Sinal para despedida.',
     example: 'Tchau! Até logo.',
-    categorySlug: 'saudacoes',
+    categorySlug: 'sociais',
   },
   {
     title: 'Obrigado',
@@ -87,18 +87,74 @@ const signSeeds = [
   },
 ];
 
+function normalizeDictionarySignTitle(title: string) {
+  return title.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function normalizeDictionaryCategoryName(name: string) {
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+}
+
 async function seedCategories() {
   for (const category of categorySeeds) {
-    await prisma.dictionaryCategory.upsert({
-      where: { slug: category.slug },
-      update: category,
-      create: category,
+    const normalizedName = normalizeDictionaryCategoryName(category.name);
+    const existingCategory = await prisma.dictionaryCategory.findFirst({
+      where: {
+        ownerId: null,
+        source: DictionaryCategorySource.SYSTEM,
+        OR:
+          category.slug === 'sociais'
+            ? [
+                { slug: 'sociais' },
+                { slug: 'saudacoes' },
+                { name: 'Sociais' },
+                { name: 'Saudações' },
+                { normalizedName: 'sociais' },
+                { normalizedName: 'saudacoes' },
+                { iconKey: 'SOCIAIS' },
+                { iconKey: 'SAUDACOES' },
+              ]
+            : [
+                { slug: category.slug },
+                { normalizedName },
+              ],
+      },
+      select: { id: true },
+    });
+
+    if (existingCategory) {
+      await prisma.dictionaryCategory.update({
+        where: { id: existingCategory.id },
+        data: {
+          ...category,
+          normalizedName,
+          ownerId: null,
+          source: DictionaryCategorySource.SYSTEM,
+        },
+      });
+      continue;
+    }
+
+    await prisma.dictionaryCategory.create({
+      data: {
+        ...category,
+        normalizedName,
+        ownerId: null,
+        source: DictionaryCategorySource.SYSTEM,
+      },
     });
   }
 }
 
 async function seedSigns() {
   for (const sign of signSeeds) {
+    const normalizedTitle = normalizeDictionarySignTitle(sign.title);
+
     const category = await prisma.dictionaryCategory.findUnique({
       where: { slug: sign.categorySlug },
       select: { id: true },
@@ -110,8 +166,8 @@ async function seedSigns() {
 
     const existingSign = await prisma.dictionarySign.findFirst({
       where: {
-        title: sign.title,
-        source: SignSource.SYSTEM,
+        categoryId: category.id,
+        normalizedTitle,
         ownerId: null,
       },
       select: { id: true },
@@ -122,6 +178,7 @@ async function seedSigns() {
         where: { id: existingSign.id },
         data: {
           title: sign.title,
+          normalizedTitle,
           description: sign.description,
           example: sign.example,
           categoryId: category.id,
@@ -133,6 +190,7 @@ async function seedSigns() {
       await prisma.dictionarySign.create({
         data: {
           title: sign.title,
+          normalizedTitle,
           description: sign.description,
           example: sign.example,
           categoryId: category.id,

@@ -4,10 +4,12 @@ export type DictionaryCategory = {
   id: string;
   name: string;
   slug: string;
-  description: string | null;
-  iconKey: string | null;
-  createdAt: string;
-  updatedAt: string;
+  description?: string | null;
+  iconKey?: string | null;
+  source?: 'SYSTEM' | 'USER';
+  ownerId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type DictionarySign = {
@@ -35,6 +37,11 @@ export type CreateDictionarySignData = {
   isPublic?: boolean;
 };
 
+export type CreateDictionaryCategoryData = {
+  name: string;
+  description?: string;
+};
+
 export type UpdateDictionarySignData = Partial<CreateDictionarySignData>;
 
 function buildQueryString(params: Record<string, string | undefined>) {
@@ -55,6 +62,14 @@ export function getDictionaryCategories() {
   return apiFetch<DictionaryCategory[]>('/dictionary/categories', {
     method: 'GET',
     useAuth: true,
+  });
+}
+
+export function createDictionaryCategory(data: CreateDictionaryCategoryData) {
+  return apiFetch<DictionaryCategory>('/dictionary/categories', {
+    method: 'POST',
+    useAuth: true,
+    body: JSON.stringify(data),
   });
 }
 

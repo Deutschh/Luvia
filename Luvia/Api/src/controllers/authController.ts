@@ -188,7 +188,7 @@ export async function googleAuth(request: Request, response: Response) {
       user = await prisma.user.update({
         where: { id: user.id },
         data: {
-          avatarUrl: avatarUrl ?? user.avatarUrl,
+          avatarUrl: user.avatarUrl ?? avatarUrl,
           authProvider: 'GOOGLE',
         },
         select: {
@@ -218,7 +218,7 @@ export async function googleAuth(request: Request, response: Response) {
           where: { id: userByEmail.id },
           data: {
             googleId,
-            avatarUrl: avatarUrl ?? userByEmail.avatarUrl,
+            avatarUrl: userByEmail.avatarUrl ?? avatarUrl,
             authProvider: 'GOOGLE',
           },
           select: {
