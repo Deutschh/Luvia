@@ -1,9 +1,45 @@
 import { useEffect } from 'react';
 import { useFonts } from 'expo-font';
-import { SplashScreen, Stack } from 'expo-router';
-import { AuthProvider } from '../contexts/AuthContext';
+import {
+  SplashScreen,
+  Stack,
+  useRootNavigationState,
+  useRouter,
+  useSegments,
+} from 'expo-router';
+import { AuthProvider, useAuth } from '../contexts/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
+
+const PUBLIC_ROUTES = [
+  '/',
+  '/onboarding',
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/new-password',
+  '/verify-email',
+  '/verify-sms',
+  '/404',
+] as const;
+
+const PRIVATE_ROUTES = [
+  '/home',
+  '/dictionary',
+  '/search',
+  '/add',
+  '/signal',
+  '/gloves',
+  '/calibration',
+  '/notification',
+  '/settings',
+  '/voice',
+  '/profile',
+] as const;
+
+function getCurrentRoute(segments: string[]) {
+  return segments.length === 0 ? '/' : `/${segments.join('/')}`;
+}
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -18,19 +54,67 @@ export default function RootLayout() {
     if (error) throw error;
   }, [error]);
 
-  useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
+  return (
+    <AuthProvider>
+      <SessionNavigator fontsLoaded={loaded} />
+    </AuthProvider>
+  );
+}
 
-  if (!loaded) {
+function SessionNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
+  const { user, loading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+  const navigationState = useRootNavigationState();
+  const currentRoute = getCurrentRoute(segments);
+  const isPublicRoute = PUBLIC_ROUTES.includes(currentRoute as (typeof PUBLIC_ROUTES)[number]);
+  const isPrivateRoute = PRIVATE_ROUTES.includes(currentRoute as (typeof PRIVATE_ROUTES)[number]);
+
+  useEffect(() => {
+    if (!fontsLoaded || loading) {
+      return;
+    }
+
+    void SplashScreen.hideAsync();
+  }, [fontsLoaded, loading]);
+
+  useEffect(() => {
+    if (!fontsLoaded || loading || !navigationState?.key) {
+      return;
+    }
+
+    // A rota raiz mantém a splash visual e decide o destino após sua animação.
+    if (currentRoute === '/') {
+      return;
+    }
+
+    if (!user && isPrivateRoute) {
+      router.replace('/login');
+      return;
+    }
+
+    if (user && isPublicRoute) {
+      router.replace('/home');
+      return;
+    }
+
+    if (!isPublicRoute && !isPrivateRoute) {
+      router.replace(user ? '/home' : '/login');
+    }
+  }, [
+    currentRoute,
+    fontsLoaded,
+    isPrivateRoute,
+    isPublicRoute,
+    loading,
+    navigationState?.key,
+    router,
+    user,
+  ]);
+
+  if (!fontsLoaded || loading) {
     return null;
   }
 
-  return (
-    <AuthProvider>
-      <Stack screenOptions={{ headerShown: false }} />
-    </AuthProvider>
-  );
+  return <Stack screenOptions={{ headerShown: false }} />;
 }

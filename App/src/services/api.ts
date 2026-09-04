@@ -18,31 +18,46 @@ type ApiRequestOptions = RequestInit & {
   retry?: boolean;
 };
 
+let refreshAccessTokenPromise: Promise<string> | null = null;
+
 async function refreshAccessToken() {
-  const refreshToken = await getRefreshToken();
-
-  if (!refreshToken) {
-    throw new Error('Refresh token não encontrado.');
+  if (refreshAccessTokenPromise) {
+    return refreshAccessTokenPromise;
   }
 
-  const response = await fetch(`${API_URL}/auth/refresh`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ refreshToken }),
-  });
+  refreshAccessTokenPromise = (async () => {
+    const refreshToken = await getRefreshToken();
 
-  const data = await response.json();
+    if (!refreshToken) {
+      await clearTokens();
+      throw new Error('Refresh token não encontrado.');
+    }
 
-  if (!response.ok) {
-    await clearTokens();
-    throw new Error(data.message || 'Sessão expirada. Faça login novamente.');
+    const response = await fetch(`${API_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      await clearTokens();
+      throw new Error(data.message || 'Sessão expirada. Faça login novamente.');
+    }
+
+    await saveTokens(data.token, data.refreshToken);
+
+    return data.token as string;
+  })();
+
+  try {
+    return await refreshAccessTokenPromise;
+  } finally {
+    refreshAccessTokenPromise = null;
   }
-
-  await saveTokens(data.token, data.refreshToken);
-
-  return data.token as string;
 }
 
 async function parseResponseBody(response: Response) {

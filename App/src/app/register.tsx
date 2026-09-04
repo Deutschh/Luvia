@@ -79,7 +79,7 @@ const isFormValid =
         password,
       });
 
-      router.push('/verify-email');
+      router.replace('/home');
     } catch (error) {
       const message =
         error instanceof Error

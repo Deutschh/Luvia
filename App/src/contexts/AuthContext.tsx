@@ -1,6 +1,7 @@
 import {
   createContext,
   ReactNode,
+  useCallback,
   useContext,
   useEffect,
   useState,
@@ -47,7 +48,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function loadUser() {
+  const loadUser = useCallback(async () => {
+    setLoading(true);
+
     try {
       const token = await getAccessToken();
 
@@ -63,7 +66,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   async function signIn(data: SignInData) {
     const userData = await login(data);
@@ -86,13 +89,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   async function signOut() {
-    await logout();
-    setUser(null);
+    try {
+      await logout();
+    } finally {
+      setUser(null);
+    }
   }
 
   useEffect(() => {
-    loadUser();
-  }, []);
+    void loadUser();
+  }, [loadUser]);
 
   return (
     <AuthContext.Provider

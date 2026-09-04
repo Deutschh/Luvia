@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useAuth } from '../contexts/AuthContext';
 
 
 const { width } = Dimensions.get('window');
@@ -15,9 +16,14 @@ const { width } = Dimensions.get('window');
 export default function SplashScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.92)).current;
+  const { user, loading } = useAuth();
 
   useEffect(() => {
-    Animated.sequence([
+    if (loading) {
+      return;
+    }
+
+    const animation = Animated.sequence([
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -37,10 +43,14 @@ export default function SplashScreen() {
         duration: 350,
         useNativeDriver: true,
       }),
-    ]).start(() => {
-      router.replace('/onboarding');
+    ]);
+
+    animation.start(() => {
+      router.replace(user ? '/home' : '/onboarding');
     });
-  }, [fadeAnim, scaleAnim]);
+
+    return () => animation.stop();
+  }, [fadeAnim, loading, scaleAnim, user]);
 
   return (
     <View style={styles.container}>
