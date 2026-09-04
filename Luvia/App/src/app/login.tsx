@@ -152,7 +152,7 @@ export default function LoginScreen() {
             resizeMode="contain"
           />
           <Text style={styles.googleText}>
-            {loadingGoogle ? 'Entrando...' : 'Entrar com Google'}
+            {loadingGoogle ? 'Entrando..' : 'Entrar com Google'}
           </Text>
         </TouchableOpacity>
 
