@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   Platform,
   ScrollView,
   Image,
@@ -14,6 +13,8 @@ import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
 import { GlassView, GlassContainer } from 'expo-glass-effect';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppBottomNavigation, useBottomNavigationContentInset } from '../components/AppBottomNavigation';
 import { useIsFocused } from '@react-navigation/native';
 import {
   type DictionaryCategory,
@@ -60,6 +61,7 @@ function getSingleParam(value?: string | string[]) {
 }
 
 export default function DictionaryScreen() {
+  const bottomNavigationContentInset = useBottomNavigationContentInset();
   const params = useLocalSearchParams<{ filter?: string | string[]; category?: string | string[] }>();
   const isFocused = useIsFocused();
   const [activeCategory, setActiveCategory] = useState('all');
@@ -146,7 +148,7 @@ export default function DictionaryScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
       <View style={styles.container}>
 
@@ -220,7 +222,7 @@ export default function DictionaryScreen() {
         <ScrollView
           style={{ overflow: 'visible' }}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContainer}
+          contentContainerStyle={[styles.listContainer, { paddingBottom: bottomNavigationContentInset }]}
         >
           {loading ? (
             <Text style={styles.cardSubtitle}>Carregando...</Text>
@@ -278,30 +280,7 @@ export default function DictionaryScreen() {
 
       </View>
 
-      <View style={styles.bottomNavContainer}>
-        <View style={styles.bottomNavInner}>
-          <NavItem
-            source={INICIO}
-            label="Início"
-            onPress={() => router.push('/home')}
-          />
-          <NavItem
-            source={DICIONARIO}
-            label="Dicionário"
-            active
-          />
-          <NavItem
-            source={LUVAS}
-            label="Luvas"
-            onPress={() => router.push('/gloves')}
-          />
-          <NavItem
-            source={CONFIGURACOES}
-            label="Configurações"
-            onPress={() => router.push('/settings')}
-          />
-        </View>
-      </View>
+      <AppBottomNavigation activeRoute="dictionary" />
     </SafeAreaView>
   );
 }

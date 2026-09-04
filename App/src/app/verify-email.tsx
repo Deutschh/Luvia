@@ -5,13 +5,16 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  SafeAreaView,
   Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
 import { GlassView, GlassContainer } from 'expo-glass-effect';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const BLUE = '#0A6DFF';
 const TEXT = '#111827';
@@ -60,9 +63,18 @@ export default function VerifyEmailScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <View style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.safeArea}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity
           style={styles.backButtonWrapper}
@@ -131,7 +143,9 @@ export default function VerifyEmailScreen() {
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -144,6 +158,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 34,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   header: {
     height: 60,

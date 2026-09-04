@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   Platform,
   ScrollView,
   Image,
@@ -15,6 +14,8 @@ import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
 import { GlassView, GlassContainer } from 'expo-glass-effect';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppBottomNavigation, useBottomNavigationContentInset } from '../components/AppBottomNavigation';
 import { searchDictionarySigns } from '../services/dictionaryService';
 
 const BLUE = '#0A6DFF';
@@ -52,6 +53,7 @@ function mapIconByKey(iconKey?: string | null, slug?: string) {
 }
 
 export default function SearchScreen() {
+  const bottomNavigationContentInset = useBottomNavigationContentInset();
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredItems, setFilteredItems] = useState<
     { id: string; title: string; subtitle: string; icon: number }[]
@@ -113,7 +115,7 @@ export default function SearchScreen() {
   }, [searchQuery]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
       <View style={styles.container}>
         
@@ -211,7 +213,7 @@ export default function SearchScreen() {
           ) : (
             <ScrollView
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.listContainer}
+              contentContainerStyle={[styles.listContainer, { paddingBottom: bottomNavigationContentInset }]}
               style={{ overflow: 'visible' }}
             >
               {filteredItems.map((item) => (
@@ -264,30 +266,7 @@ export default function SearchScreen() {
 
       </View>
 
-      <View style={styles.bottomNavContainer}>
-        <View style={styles.bottomNavInner}>
-          <NavItem
-            source={INICIO}
-            label="Início"
-            onPress={() => router.replace('/home')}
-          />
-          <NavItem
-            source={DICIONARIO}
-            label="Dicionário"
-            active
-          />
-          <NavItem
-            source={LUVAS}
-            label="Luvas"
-            onPress={() => router.replace('/gloves')}
-          />
-          <NavItem
-            source={CONFIGURACOES}
-            label="Configurações"
-            onPress={() => router.replace('/settings')}
-          />
-        </View>
-      </View>
+      <AppBottomNavigation activeRoute="dictionary" replaceNavigation />
     </SafeAreaView>
   );
 }

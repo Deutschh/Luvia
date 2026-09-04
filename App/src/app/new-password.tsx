@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  SafeAreaView,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -16,6 +15,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
 import { resetPassword } from '../services/authService';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const BLUE = '#0A6DFF';
 const TEXT = '#111827';
@@ -76,13 +76,14 @@ export default function NewPasswordScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.safeArea}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <StatusBar style="dark" />
-      <SafeAreaView style={styles.innerSafeArea}>
+      <SafeAreaView style={styles.innerSafeArea} edges={['top', 'bottom']}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
             <TouchableOpacity

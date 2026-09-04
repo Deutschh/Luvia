@@ -5,10 +5,10 @@ import {
   StyleSheet,
   Image,
   TouchableOpacity,
-  SafeAreaView,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const BLUE = '#0162FF';
 const MUTED = '#979797';
@@ -58,7 +58,7 @@ export default function OnboardingScreen() {
   const currentStep = onboardingSteps[step];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
 
       <View style={styles.container}>
@@ -109,7 +109,7 @@ export default function OnboardingScreen() {
 
 function WelcomeScreen() {
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
 
       <View style={styles.container}>

@@ -7,6 +7,7 @@ import {
   useRouter,
   useSegments,
 } from 'expo-router';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
@@ -55,9 +56,11 @@ export default function RootLayout() {
   }, [error]);
 
   return (
-    <AuthProvider>
-      <SessionNavigator fontsLoaded={loaded} />
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <SessionNavigator fontsLoaded={loaded} />
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
 

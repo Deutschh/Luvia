@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Image,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   Platform,
   Modal,
@@ -18,6 +17,8 @@ import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
 import { GlassView, GlassContainer } from 'expo-glass-effect';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppBottomNavigation, useBottomNavigationContentInset } from '../components/AppBottomNavigation';
 
 const BLUE = '#0A6DFF';
 const TEXT = '#111827';
@@ -45,6 +46,7 @@ const WAVE_DATA = [
 ];
 
 export default function HomeScreen() {
+  const bottomNavigationContentInset = useBottomNavigationContentInset();
   const [isFavorite, setIsFavorite] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [hasRecentPhrase, setHasRecentPhrase] = useState(false);
@@ -70,7 +72,7 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" backgroundColor={BRANCO} />
       
       <View style={styles.container}>
@@ -101,7 +103,7 @@ export default function HomeScreen() {
         <ScrollView 
           style={{ overflow: 'visible' }}
           showsVerticalScrollIndicator={false} 
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomNavigationContentInset }]}
         >
           
           <View style={styles.glovesRow}>
@@ -272,18 +274,7 @@ export default function HomeScreen() {
         </ScrollView>
       </View>
 
-      <View style={styles.bottomNavContainer}>
-        <View style={styles.bottomNavInner}>
-          <NavItem source={INICIO} label="Início" active />
-          <NavItem source={DICIONARIO} label="Dicionário" onPress={() => router.push('/dictionary')} />
-          <NavItem source={LUVAS} label="Luvas" onPress={() => router.push('/gloves')}/>
-          <NavItem
-            source={CONFIGURACOES}
-            label="Configurações"
-            onPress={() => router.push('/settings')}
-          />
-        </View>
-      </View>
+      <AppBottomNavigation activeRoute="home" />
 
       <Modal
         visible={isModalVisible}

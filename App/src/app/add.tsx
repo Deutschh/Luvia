@@ -5,7 +5,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   Platform,
   ScrollView,
   Image,
@@ -13,12 +12,14 @@ import {
   Modal,
   PanResponder,
   Animated,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
 import { GlassView, GlassContainer } from 'expo-glass-effect';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   type DictionaryCategory,
   createDictionaryCategory,
@@ -218,9 +219,12 @@ export default function AddWordScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <View style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         
         <View style={styles.header}>
           <TouchableOpacity
@@ -241,6 +245,7 @@ export default function AddWordScreen() {
           style={{ overflow: 'visible' }}
           contentContainerStyle={styles.scrollContent} 
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           
           <TouchableOpacity 
@@ -490,7 +495,7 @@ export default function AddWordScreen() {
           </View>
         </Modal>
 
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

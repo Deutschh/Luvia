@@ -4,7 +4,6 @@ import {
   Text, 
   StyleSheet, 
   Image, 
-  SafeAreaView, 
   Platform, 
   TouchableOpacity, 
   ScrollView,
@@ -17,6 +16,8 @@ import { router } from 'expo-router';
 import { GlassView, GlassContainer } from 'expo-glass-effect';
 import { LinearGradient } from 'expo-linear-gradient';
 import Slider from '@react-native-community/slider';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppBottomNavigation, useBottomNavigationContentInset } from '../components/AppBottomNavigation';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -48,6 +49,7 @@ const VOICES = [
 ];
 
 export default function GlovesScreen() {
+  const bottomNavigationContentInset = useBottomNavigationContentInset();
   const [isConnected, setIsConnected] = useState(true); 
   
   const [volume, setVolume] = useState(25);
@@ -66,7 +68,7 @@ export default function GlovesScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
       <View style={styles.container}>
         
@@ -85,7 +87,7 @@ export default function GlovesScreen() {
 
             <ScrollView 
               style={{ overflow: 'visible' }}
-              contentContainerStyle={styles.scrollContent} 
+              contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomNavigationContentInset }]}
               showsVerticalScrollIndicator={false}
             >
               
@@ -243,18 +245,7 @@ export default function GlovesScreen() {
 
       </View>
 
-      <View style={styles.bottomNavContainer}>
-        <View style={styles.bottomNavInner}>
-          <NavItem source={INICIO} label="Início" onPress={() => router.push('/home')} />
-          <NavItem source={DICIONARIO} label="Dicionário" onPress={() => router.push('/dictionary')}  />
-          <NavItem source={LUVAS} label="Luvas" active/>
-          <NavItem
-            source={CONFIGURACOES}
-            label="Configurações"
-            onPress={() => router.push('/settings')}
-          />
-        </View>
-      </View>
+      <AppBottomNavigation activeRoute="gloves" />
     </SafeAreaView>
   );
 

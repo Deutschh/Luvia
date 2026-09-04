@@ -5,14 +5,17 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  SafeAreaView,
   Image,
   Animated,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
 import { forgotPassword } from '../services/authService';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const BLUE = '#0A6DFF';
 const TEXT = '#111827';
@@ -22,6 +25,7 @@ const BORDER = '#888E9740';
 const CADEADO = require('../../assets/images/Luvia/login/cadeado.png');
 
 export default function ForgotPasswordScreen() {
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [showToast, setShowToast] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -69,9 +73,18 @@ export default function ForgotPasswordScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
-      <View style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.safeArea}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -121,9 +134,11 @@ export default function ForgotPasswordScreen() {
             <Text style={styles.mainButtonText}>{isSending ? 'Enviando...' : 'Enviar'}</Text>
           </TouchableOpacity>
         </View>
+          </View>
+        </ScrollView>
 
         {showToast && (
-          <View style={styles.toastContainer}>
+          <View style={[styles.toastContainer, { bottom: insets.bottom + 24 }]}>
             <View style={styles.toastContent}>
               <View style={styles.toastCheckCircle}>
                 <Feather name="check" size={16} color={BLUE} />
@@ -136,7 +151,7 @@ export default function ForgotPasswordScreen() {
             <Animated.View style={[styles.toastProgressBar, { width: widthInterpolate }]} />
           </View>
         )}
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -149,6 +164,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 34,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   header: {
     height: 60,

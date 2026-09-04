@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Image,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   Platform,
   Switch,
@@ -18,6 +17,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { getMySettings, updateMySettings } from '../services/settingsService';
 import { getMe, normalizeAvatarUrl } from '../services/userService';
 import { useAuth } from '../contexts/AuthContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppBottomNavigation, useBottomNavigationContentInset } from '../components/AppBottomNavigation';
 
 const PERFIL = require('../../assets/images/Luvia/profile/profile.png');
 
@@ -34,6 +35,7 @@ const DIREITA = require('../../assets/images/Luvia/home/direita.png');
 const AZULDIREITA = require('../../assets/images/Luvia/home/direitaAzul.png'); 
 
 export default function SettingsScreen() {
+  const bottomNavigationContentInset = useBottomNavigationContentInset();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isHapticEnabled, setIsHapticEnabled] = useState(true);
   const [profileName, setProfileName] = useState('');
@@ -125,7 +127,7 @@ export default function SettingsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" backgroundColor={BRANCO} />
       
       <View style={styles.container}>
@@ -136,7 +138,7 @@ export default function SettingsScreen() {
         <ScrollView 
           style={{ overflow: 'visible' }} 
           showsVerticalScrollIndicator={false} 
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomNavigationContentInset }]}
         >
           
           <View style={[styles.neumorphicCard, { borderRadius: 50 }]}>
@@ -260,22 +262,7 @@ export default function SettingsScreen() {
         </ScrollView>
       </View>
 
-      <View style={styles.bottomNavContainer}>
-        <View style={styles.bottomNavInner}>
-          <NavItem 
-            source={INICIO} 
-            label="Início" 
-            onPress={() => router.push('/home')} 
-          />
-          <NavItem source={DICIONARIO} label="Dicionário" onPress={() => router.push('/dictionary')}  />
-          <NavItem source={LUVAS} label="Luvas" onPress={() => router.push('/gloves')} />
-          <NavItem 
-            source={CONFIGURACOES} 
-            label="Configurações" 
-            active 
-          />
-        </View>
-      </View>
+      <AppBottomNavigation activeRoute="settings" />
     </SafeAreaView>
   );
 }
