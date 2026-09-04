@@ -1,70 +1,90 @@
-<div align="center">
+# Luvia
 
-<img src="https://github.com/Deutschh/Luvia/blob/89d56ef1619eb0d359791fba594a2042534ee969/Front-End/imagens/logo.png" alt="Logo do Luvia" width="150px">
+O Luvia é uma plataforma de apoio à comunicação em Libras. Este repositório contém o aplicativo mobile e a API que sustentam a versão atual do projeto.
 
-</div>
+## Estrutura
 
-# Luvia - Sistema Bimanual Tradutor de Libras com IA para Voz
+```text
+App/  Aplicativo mobile em React Native e Expo
+Api/  API em Node.js, Express, Prisma e PostgreSQL/Neon
+```
 
-> **Luvia** é uma tecnologia assistiva composta por um par de luvas inteligentes que traduzem os movimentos da Língua Brasileira de Sinais (Libras) em voz audível em tempo real. Atualmente está no processo inicial (prototipagem).
+Use sempre os diretórios `App/` e `Api/` como fontes oficiais. Não há projeto executável na raiz do repositório.
 
-</div>
+## Pré-requisitos
 
-<br>
-<br>
+- Node.js e npm
+- Uma instância PostgreSQL compatível com Prisma (Neon em ambiente remoto)
+- Para Android/iOS, o ambiente Expo apropriado ao dispositivo ou emulador
 
-## O que é o Luvia?
+## Variáveis de ambiente
 
-O **Luvia** é uma plataforma projetada para quebrar a barreira de comunicação entre surdos e ouvintes. Diferente de outras soluções, ele foca na **identidade do usuário**, permitindo que a pessoa "fale" com uma voz que a represente e resolva complexidades gramaticais através de comandos físicos.
+Os arquivos de exemplo não contêm segredos. Copie cada um para o arquivo local correspondente e preencha os valores do ambiente:
 
-- **Tradução em tempo real:** Conversão de sinais em fala sintetizada.
-- **Humanização:** Clonagem de voz via IA para manter a "assinatura sonora" do usuário.
-- **Gramática Integrada:** Botões de expressão para definir frases interrogativas, negativas ou exclamativas.
-- **Autonomia:** Alto-falantes integrados nos pulsos para independência de dispositivos externos.
+```powershell
+Copy-Item App/.env.example App/.env
+Copy-Item Api/.env.example Api/.env
+```
 
-<br>
+### App
 
-## Estrutura do Projeto
+| Variável | Finalidade |
+| --- | --- |
+| `EXPO_PUBLIC_API_URL` | URL pública ou de desenvolvimento da API |
+| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Client ID web usado pelo login nativo do Google |
 
-- **App/Front-End/**: Interface desenvolvida em React Native para gestão e treino.
-- **App/Back-End/**: API em Node.js para processamento e sincronização via Firebase.
-- **IoT/**: Código em C++ para o processamento dos sensores no ESP32-S3.
-- **Documentação/**: Planejamento de desenvolvimento e guia de calibração.
+### API
 
-<br>
-<br>
+| Grupo | Variáveis |
+| --- | --- |
+| Banco | `DATABASE_URL` |
+| Tokens | `JWT_SECRET`, `JWT_EXPIRES_IN`, `REFRESH_TOKEN_DAYS` |
+| Google | `GOOGLE_WEB_CLIENT_ID` |
+| URL pública | `PUBLIC_API_URL`, `APP_DEEP_LINK_SCHEME` |
+| E-mail | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`, `APP_NAME` |
+| Servidor | `PORT`, `NODE_ENV` |
 
-**Tecnologias e Frameworks (Software):**
+## Rodar o App
 
-![React Native](https://img.shields.io/badge/React_Native-0162FF?style=for-the-badge&logo=react&logoColor=white) &nbsp;
-![Node.js](https://img.shields.io/badge/Node.js-0091FF?style=for-the-badge&logo=node.js&logoColor=white) &nbsp;
-![Firebase](https://img.shields.io/badge/Firebase-0162FF?style=for-the-badge&logo=firebase&logoColor=white)
+```powershell
+Set-Location App
+npm ci
+npm start
+```
 
-<br>
-<br>
+Comandos úteis:
 
-**Linguagens e Hardware (IoT):**
+```powershell
+npm run android
+npm run ios
+npm run web
+npm run lint
+```
 
-![C++](https://img.shields.io/badge/C++-0091FF?style=for-the-badge&logo=c%2B%2B&logoColor=white) &nbsp;
-![ESP32](https://img.shields.io/badge/ESP32--S3-0162FF?style=for-the-badge&logo=espressif&logoColor=white) &nbsp;
-![Bluetooth LE](https://img.shields.io/badge/Bluetooth_LE-0091FF?style=for-the-badge&logo=bluetooth&logoColor=white)
+Para um dispositivo físico, `EXPO_PUBLIC_API_URL` deve apontar para uma URL alcançável pelo dispositivo; `localhost` e `10.0.2.2` são apropriados somente para cenários locais específicos.
 
-<br>
-<br>
+## Rodar a API
 
-## Funcionalidades Principais
+```powershell
+Set-Location Api
+npm ci
+npm run dev
+```
 
-- **Sistema Bimanual:** Tradução de sinais complexos que exigem o uso das duas mãos.
-- **Clonagem de Voz (IA):** Integração com APIs como ElevenLabs para personalização do timbre.
-- **Calibração Dinâmica:** Ajuste automático da tradução se o usuário estiver em pé ou sentado.
-- **Dicionário Customizável:** Possibilidade de adicionar novas gírias e sinais regionalizados.
-- **Feedback Háptico:** Vibrações nos motores internos para confirmar que o sinal foi entendido.
-- **Módulo de Treino:** Aba interativa para aperfeiçoamento da precisão dos sinais.
+A API usa a porta definida em `PORT`; se ausente, usa `3333`.
 
-<br>
-<br>
+Comandos úteis:
 
-<div align="center">
+```powershell
+npm run build
+npm start
+npm run prisma:generate
+```
 
-<img src="https://github.com/Deutschh/Luvia/blob/89d56ef1619eb0d359791fba594a2042534ee969/Front-End/imagens/logo.png" alt="Logo do Luvia" width="120px">
-</div>
+Migrations e operações de banco devem ser executadas deliberadamente, em tarefa própria e com o ambiente correto configurado.
+
+## Convenções do repositório
+
+- Não versione arquivos `.env`, artefatos Expo, `node_modules`, uploads ou build da API.
+- Não execute comandos npm na raiz: use `App/` ou `Api/`.
+- Mantenha alterações de interface em `App/` e alterações de servidor/banco em `Api/`.
