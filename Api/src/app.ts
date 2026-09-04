@@ -9,8 +9,25 @@ import { userRoutes } from './routes/userRoutes';
 
 export const app = express();
 
+const corsOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const corsOptions: cors.CorsOptions = {
+  origin(origin, callback) {
+    if (process.env.NODE_ENV !== 'production' || !origin || corsOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    const error = new Error('Origem não permitida pelo CORS.') as Error & { code?: string };
+    error.code = 'CORS_ORIGIN_NOT_ALLOWED';
+    return callback(error);
+  },
+};
+
 app.set('trust proxy', true);
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 
@@ -20,6 +37,10 @@ app.get('/', (request, response) => {
   });
 });
 
+app.get('/health', (_request, response) => {
+  return response.status(200).json({ status: 'ok' });
+});
+
 app.use('/auth', authRoutes);
 app.use('/dictionary', dictionaryRoutes);
 app.use('/favorites', favoriteRoutes);
@@ -27,6 +48,15 @@ app.use('/settings', settingsRoutes);
 app.use('/users', userRoutes);
 
 app.use((error: unknown, _request: Request, response: Response, next: NextFunction) => {
+  if (
+    error &&
+    typeof error === 'object' &&
+    'code' in error &&
+    error.code === 'CORS_ORIGIN_NOT_ALLOWED'
+  ) {
+    return response.status(403).json({ message: 'Origem não permitida pelo CORS.' });
+  }
+
   if (
     error &&
     typeof error === 'object' &&

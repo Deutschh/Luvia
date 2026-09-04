@@ -23,7 +23,7 @@ const registerSchema = z.object({
   name: z.string().min(2, 'Nome obrigatório'),
   phone: z.string().optional(),
   email: z.string().email('E-mail inválido').toLowerCase(),
-  password: z.string().min(6, 'A senha precisa ter pelo menos 6 caracteres'),
+  password: z.string().min(8, 'A senha precisa ter pelo menos 8 caracteres'),
 });
 
 const loginSchema = z.object({
@@ -328,26 +328,19 @@ export async function googleAuth(request: Request, response: Response) {
 export async function forgotPassword(request: Request, response: Response) {
   try {
     const { email } = forgotPasswordSchema.parse(request.body);
-    console.info(`[AUTH] Forgot password solicitado para: ${email}`);
 
     const user = await prisma.user.findUnique({
       where: { email },
-      select: { id: true, email: true },
+      select: { id: true, email: true, password: true },
     });
 
-    console.info(`[AUTH] Usuário encontrado: ${Boolean(user)}`);
-
-    if (!user) {
-      return response.status(404).json({
-        message: 'E-mail não encontrado. Verifique se digitou corretamente.',
-      });
+    if (!user || !user.password || !isSmtpConfigured()) {
+      return response.json({ message: forgotPasswordSuccessMessage });
     }
 
     const token = generatePasswordResetToken();
     const expiresAt = getPasswordResetTokenExpirationDate();
     const publicBaseUrl = getPublicApiBaseUrl(request);
-    const httpsResetLink = `${publicBaseUrl}/auth/reset-password-link?token=${encodeURIComponent(token)}`;
-    const deepLink = getPasswordResetDeepLink(token);
 
     const passwordResetToken = await prisma.$transaction(async (transaction) => {
       await transaction.passwordResetToken.updateMany({
@@ -364,42 +357,14 @@ export async function forgotPassword(request: Request, response: Response) {
       });
     });
 
-    if (process.env.NODE_ENV !== 'production') {
-      console.info(`
-================ LUVIA RESET PASSWORD DEV ================
-Email: ${user.email}
-Token de recuperação: ${token}
-Expira em: ${expiresAt.toLocaleString('pt-BR')}
-============================================================`);
-      console.info(`[RESET LINK] Public base URL usada: ${publicBaseUrl}`);
-      console.info(`[RESET LINK] HTTPS link gerado: ${httpsResetLink}`);
-      console.info(`[RESET LINK] Deep link gerado: ${deepLink}`);
-    }
-
-    const smtpConfigured = isSmtpConfigured();
-    console.info(`[MAIL] SMTP configurado: ${smtpConfigured}`);
-
-    if (!smtpConfigured) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.warn('[DEV] SMTP não configurado. Token exibido apenas no terminal.');
-        return response.json({ message: forgotPasswordSuccessMessage });
-      }
-
-      await prisma.passwordResetToken.update({
-        where: { id: passwordResetToken.id },
-        data: { usedAt: new Date() },
-      });
-      return response.status(500).json({ message: 'Não foi possível enviar o link de recuperação. Tente novamente.' });
-    }
-
     try {
       await sendPasswordResetEmail(user.email, token, expiresAt, publicBaseUrl);
-    } catch (error) {
+    } catch {
       await prisma.passwordResetToken.update({
         where: { id: passwordResetToken.id },
         data: { usedAt: new Date() },
       });
-      return response.status(500).json({ message: 'Não foi possível enviar o link de recuperação. Tente novamente.' });
+      return response.json({ message: forgotPasswordSuccessMessage });
     }
 
     return response.json({ message: forgotPasswordSuccessMessage });
@@ -408,8 +373,8 @@ Expira em: ${expiresAt.toLocaleString('pt-BR')}
       return response.status(400).json({ message: 'Informe um e-mail válido.', errors: error.issues });
     }
 
-    console.error(error);
-    return response.status(500).json({ message: 'Não foi possível solicitar a redefinição de senha.' });
+    console.error('Não foi possível processar a solicitação de redefinição de senha.');
+    return response.json({ message: forgotPasswordSuccessMessage });
   }
 }
 
@@ -490,6 +455,11 @@ export async function resetPassword(request: Request, response: Response) {
         data: { usedAt: now },
       });
 
+      await transaction.refreshToken.updateMany({
+        where: { userId: resetToken.userId, revokedAt: null },
+        data: { revokedAt: now },
+      });
+
       return true;
     });
 
@@ -512,25 +482,55 @@ export async function refresh(request: Request, response: Response) {
   try {
     const { refreshToken } = refreshSchema.parse(request.body);
     const tokenHash = hashRefreshToken(refreshToken);
+    const now = new Date();
 
-    const storedToken = await prisma.refreshToken.findUnique({
-      where: { tokenHash },
-      include: { user: true },
+    const rotatedToken = await prisma.$transaction(async (transaction) => {
+      const storedToken = await transaction.refreshToken.findUnique({
+        where: { tokenHash },
+        include: { user: true },
+      });
+
+      if (!storedToken || storedToken.revokedAt || storedToken.expiresAt <= now) {
+        return null;
+      }
+
+      const claimedToken = await transaction.refreshToken.updateMany({
+        where: {
+          id: storedToken.id,
+          revokedAt: null,
+          expiresAt: { gt: now },
+        },
+        data: { revokedAt: now },
+      });
+
+      if (claimedToken.count !== 1) {
+        return null;
+      }
+
+      const newRefreshToken = generateRefreshToken();
+
+      await transaction.refreshToken.create({
+        data: {
+          tokenHash: hashRefreshToken(newRefreshToken),
+          userId: storedToken.userId,
+          expiresAt: getRefreshTokenExpirationDate(),
+        },
+      });
+
+      return {
+        userId: storedToken.userId,
+        role: storedToken.user.role,
+        refreshToken: newRefreshToken,
+      };
     });
 
-    if (!storedToken || storedToken.revokedAt || storedToken.expiresAt < new Date()) {
+    if (!rotatedToken) {
       return response.status(401).json({ message: 'Refresh token inválido ou expirado.' });
     }
 
-    await prisma.refreshToken.update({
-      where: { id: storedToken.id },
-      data: { revokedAt: new Date() },
-    });
+    const token = generateAccessToken(rotatedToken.userId, rotatedToken.role);
 
-    const newRefreshToken = await createRefreshToken(storedToken.userId);
-    const token = generateAccessToken(storedToken.userId, storedToken.user.role);
-
-    return response.json({ token, refreshToken: newRefreshToken });
+    return response.json({ token, refreshToken: rotatedToken.refreshToken });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return response.status(400).json({ message: 'Dados inválidos.', errors: error.issues });

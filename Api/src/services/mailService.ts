@@ -64,10 +64,10 @@ export async function sendPasswordResetEmail(
     },
   });
 
-  console.info(`[MAIL] Enviando recuperação para: ${to}`);
+  console.info('[MAIL] Enviando e-mail de recuperação.');
 
   try {
-    const info = await transporter.sendMail({
+    await transporter.sendMail({
       from: process.env.MAIL_FROM,
       to,
       subject: `Recuperação de senha - ${appName}`,
@@ -99,9 +99,9 @@ export async function sendPasswordResetEmail(
       `,
     });
 
-    console.info(`[MAIL] E-mail de recuperação enviado: ${info.messageId}`);
-  } catch (error) {
-    console.error('[MAIL] Falha ao enviar e-mail de recuperação:', error);
-    throw error;
+    console.info('[MAIL] E-mail de recuperação enviado.');
+  } catch {
+    console.error('[MAIL] Falha ao enviar e-mail de recuperação.');
+    throw new Error('Falha ao enviar e-mail de recuperação.');
   }
 }

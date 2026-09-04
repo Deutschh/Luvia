@@ -11,16 +11,17 @@ const createUserSchema = z.object({
   name: z.string().min(2, 'Nome obrigatório'),
   phone: z.string().optional(),
   email: z.string().email('E-mail inválido').toLowerCase(),
-  password: z.string().min(6, 'A senha precisa ter pelo menos 6 caracteres'),
+  password: z.string().min(8, 'A senha precisa ter pelo menos 8 caracteres'),
   role: z.enum(['USER', 'ADMIN']).optional(),
 });
 
-const updateUserSchema = z.object({
-  name: z.string().min(2, 'Nome obrigatório').optional(),
-  phone: z.string().optional().nullable(),
-  email: z.string().email('E-mail inválido').toLowerCase().optional(),
-  password: z.string().min(6, 'A senha precisa ter pelo menos 6 caracteres').optional(),
-});
+const updateUserSchema = z
+  .object({
+    name: z.string().min(2, 'Nome obrigatório').optional(),
+    phone: z.string().optional().nullable(),
+    email: z.string().email('E-mail inválido').toLowerCase().optional(),
+  })
+  .strict();
 
 const updateMyProfileSchema = z
   .object({
@@ -246,9 +247,19 @@ export async function updateMyPassword(request: Request, response: Response) {
       }
     }
 
-    await prisma.user.update({
-      where: { id: request.user!.id },
-      data: { password: await bcrypt.hash(data.newPassword, 10) },
+    const now = new Date();
+    const password = await bcrypt.hash(data.newPassword, 10);
+
+    await prisma.$transaction(async (transaction) => {
+      await transaction.user.update({
+        where: { id: request.user!.id },
+        data: { password },
+      });
+
+      await transaction.refreshToken.updateMany({
+        where: { userId: request.user!.id, revokedAt: null },
+        data: { revokedAt: now },
+      });
     });
 
     return response.json({ message: 'Senha atualizada com sucesso.' });
@@ -359,7 +370,6 @@ export async function updateUser(request: Request, response: Response) {
         name: data.name,
         phone: data.phone,
         email: data.email,
-        password: data.password ? await bcrypt.hash(data.password, 10) : undefined,
       },
       select: publicUserSelect,
     });
