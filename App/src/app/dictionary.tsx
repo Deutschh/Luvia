@@ -15,6 +15,7 @@ import { GlassView, GlassContainer } from 'expo-glass-effect';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppBottomNavigation, useBottomNavigationContentInset } from '../components/AppBottomNavigation';
+import { AppGlassCard } from '../components/AppGlassCard';
 import { useIsFocused } from '@react-navigation/native';
 import {
   type DictionaryCategory,
@@ -232,19 +233,8 @@ export default function DictionaryScreen() {
             <Text style={styles.cardSubtitle}>Nenhum sinal encontrado.</Text>
           ) : (
             items.map((item) => (
-              <TouchableOpacity key={item.id} style={styles.card} activeOpacity={0.7}>
-                
-                {/* FUNDO LIQUID GLASS DO CARD */}
-                <GlassContainer style={styles.liquidContainerShapeWhite40}>
-                  <GlassView style={styles.liquidBaseBlurWhite} />
-                </GlassContainer>
-                <LinearGradient
-                  colors={['rgba(255, 255, 255, 0.6)', 'rgba(255, 255, 255, 0.05)']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.liquidLightOverlayWhite40}
-                />
-                <View style={styles.liquidReflectionLipWhite40} />
+              <AppGlassCard key={item.id} style={styles.card} borderRadius={40}>
+                <TouchableOpacity style={styles.cardContent} activeOpacity={0.7}>
 
                 <View style={styles.cardIconWrapper}>
                   <GlassContainer style={styles.liquidContainerShapeShortcut}>
@@ -273,7 +263,8 @@ export default function DictionaryScreen() {
                   <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
                 </View>
                 <Image source={SETA} style={styles.arrowIcon} resizeMode="contain" />
-              </TouchableOpacity>
+                </TouchableOpacity>
+              </AppGlassCard>
             ))
           )}
         </ScrollView>
@@ -421,15 +412,13 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   card: {
+    borderRadius: 40,
+  },
+  cardContent: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 40,
     padding: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 40,
-    elevation: 4,
   },
 
   liquidContainerShapeWhite40: {
@@ -509,7 +498,7 @@ const styles = StyleSheet.create({
   cardSubtitle: {
     fontSize: 14,
     fontFamily: 'Mazzard',
-    color: MUTED,
+    color: '#64748B',
   },
   arrowIcon: {
     width: 14,

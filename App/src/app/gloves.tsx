@@ -13,11 +13,10 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { GlassView, GlassContainer } from 'expo-glass-effect';
-import { LinearGradient } from 'expo-linear-gradient';
 import Slider from '@react-native-community/slider';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppBottomNavigation, useBottomNavigationContentInset } from '../components/AppBottomNavigation';
+import { AppGlassCard } from '../components/AppGlassCard';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -91,17 +90,7 @@ export default function GlovesScreen() {
               showsVerticalScrollIndicator={false}
             >
               
-              <View style={styles.accuracyCard}>
-                <GlassContainer style={styles.liquidContainerShapeWhite34}>
-                  <GlassView style={styles.liquidBaseBlurWhite} />
-                </GlassContainer>
-                <LinearGradient
-                  colors={['rgba(255, 255, 255, 0.8)', 'rgba(255, 255, 255, 0.05)']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.liquidLightOverlayWhite34}
-                />
-                <View style={styles.liquidReflectionLipWhite34} />
+              <AppGlassCard style={styles.accuracyCard}>
 
                 <View style={styles.accuracyContent}>
                   <Text style={styles.accuracySubtitle}>Suas luvas estão prontas para uso.</Text>
@@ -110,7 +99,7 @@ export default function GlovesScreen() {
                     <Text style={styles.accuracyLabel}> de precisão.</Text>
                   </View>
                 </View>
-              </View>
+              </AppGlassCard>
 
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Volume</Text>
@@ -170,21 +159,11 @@ export default function GlovesScreen() {
                 </View>
               </View>
 
-              <View style={[styles.section, { zIndex: 10 }]}>
+              <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Seleção da Voz</Text>
                 <View style={styles.separator} />
                 
-                <View style={styles.dropdownCard}>
-                  <GlassContainer style={styles.liquidContainerShapeWhite34}>
-                    <GlassView style={styles.liquidBaseBlurWhite} />
-                  </GlassContainer>
-                  <LinearGradient
-                    colors={['rgba(255, 255, 255, 0.6)', 'rgba(255, 255, 255, 0.05)']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.liquidLightOverlayWhite34}
-                  />
-                  <View style={styles.liquidReflectionLipWhite34} />
+                <AppGlassCard style={styles.dropdownCard}>
 
                   <TouchableOpacity 
                     style={styles.dropdownHeader} 
@@ -219,7 +198,7 @@ export default function GlovesScreen() {
                       ))}
                     </View>
                   )}
-                </View>
+                </AppGlassCard>
 
               </View>
 
@@ -306,11 +285,6 @@ const styles = StyleSheet.create({
   accuracyCard: {
     borderRadius: 34,
     marginBottom: 40,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 30 },
-    shadowOpacity: 0.06,
-    shadowRadius: 40,
-    elevation: 4,
     height: 140, 
     justifyContent: 'center',
   },
@@ -343,12 +317,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingHorizontal: 24,
     gap: 20,
-    zIndex: 10,
+    backgroundColor: 'transparent',
   },
   accuracySubtitle: {
     fontSize: 14,
     fontFamily: 'Mazzard',
-    color: MUTED,
+    color: '#64748B',
     marginBottom: 8,
   },
   accuracyRow: {
@@ -364,7 +338,7 @@ const styles = StyleSheet.create({
   accuracyLabel: {
     fontSize: 12,
     fontFamily: 'PoppinsM',
-    color: MUTED,
+    color: '#64748B',
     marginBottom: 6,
   },
   section: {
@@ -421,11 +395,6 @@ const styles = StyleSheet.create({
   dropdownCard: {
     borderRadius: 34,
     width: '75%',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 40,
-    elevation: 4,
   },
   dropdownHeader: {
     flexDirection: 'row',
@@ -433,12 +402,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 18,
     paddingHorizontal: 24,
-    zIndex: 10,
+    backgroundColor: 'transparent',
   },
   dropdownHeaderText: {
     fontSize: 13,
     fontFamily: 'PoppinsM',
-    color: MUTED,
+    color: '#475569',
   },
   dropdownHeaderTextSelected: {
     color: BLUE,
@@ -446,7 +415,7 @@ const styles = StyleSheet.create({
   dropdownList: {
     paddingHorizontal: 24,
     paddingBottom: 16,
-    zIndex: 10,
+    backgroundColor: 'transparent',
   },
   voiceItem: {
     flexDirection: 'row',
@@ -457,7 +426,7 @@ const styles = StyleSheet.create({
   voiceItemText: {
     fontSize: 13,
     fontFamily: 'PoppinsM',
-    color: MUTED,
+    color: '#475569',
   },
   voiceItemTextSelected: {
     color: BLUE,

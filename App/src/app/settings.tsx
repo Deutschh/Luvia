@@ -12,13 +12,12 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { GlassView, GlassContainer } from 'expo-glass-effect';
-import { LinearGradient } from 'expo-linear-gradient';
 import { getMySettings, updateMySettings } from '../services/settingsService';
 import { getMe, normalizeAvatarUrl } from '../services/userService';
 import { useAuth } from '../contexts/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppBottomNavigation, useBottomNavigationContentInset } from '../components/AppBottomNavigation';
+import { AppGlassCard } from '../components/AppGlassCard';
 
 const PERFIL = require('../../assets/images/Luvia/profile/profile.png');
 
@@ -141,17 +140,7 @@ export default function SettingsScreen() {
           contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomNavigationContentInset }]}
         >
           
-          <View style={[styles.neumorphicCard, { borderRadius: 50 }]}>
-            <GlassContainer style={styles.liquidContainerShapeWhite50}>
-              <GlassView style={styles.liquidBaseBlurWhite} />
-            </GlassContainer>
-            <LinearGradient
-              colors={['rgba(255, 255, 255, 0.6)', 'rgba(255, 255, 255, 0.05)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.liquidLightOverlayWhite50}
-            />
-            <View style={styles.liquidReflectionLipWhite50} />
+          <AppGlassCard style={styles.neumorphicCard} borderRadius={50}>
 
             <TouchableOpacity 
               style={styles.profileRow} 
@@ -169,19 +158,9 @@ export default function SettingsScreen() {
               </View>
               <Image source={AZULDIREITA} style={styles.arrowright} resizeMode="contain" />
             </TouchableOpacity>
-          </View>
+          </AppGlassCard>
 
-          <View style={styles.neumorphicCard}>
-            <GlassContainer style={styles.liquidContainerShapeWhite34}>
-              <GlassView style={styles.liquidBaseBlurWhite} />
-            </GlassContainer>
-            <LinearGradient
-              colors={['rgba(255, 255, 255, 0.6)', 'rgba(255, 255, 255, 0.05)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.liquidLightOverlayWhite34}
-            />
-            <View style={styles.liquidReflectionLipWhite34} />
+          <AppGlassCard style={styles.neumorphicCard}>
 
             <View style={styles.optionsContainer}>
               <TouchableOpacity style={styles.optionRow} activeOpacity={0.7} onPress={() => router.push('/voice')}>
@@ -202,19 +181,9 @@ export default function SettingsScreen() {
                 <Image source={DIREITA} style={styles.arrowright} resizeMode="contain" />
               </TouchableOpacity>
             </View>
-          </View>
+          </AppGlassCard>
 
-          <View style={styles.neumorphicCard}>
-            <GlassContainer style={styles.liquidContainerShapeWhite34}>
-              <GlassView style={styles.liquidBaseBlurWhite} />
-            </GlassContainer>
-            <LinearGradient
-              colors={['rgba(255, 255, 255, 0.6)', 'rgba(255, 255, 255, 0.05)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.liquidLightOverlayWhite34}
-            />
-            <View style={styles.liquidReflectionLipWhite34} />
+          <AppGlassCard style={styles.neumorphicCard}>
 
             <View style={styles.optionsContainer}>
               <View style={styles.optionRow}>
@@ -249,7 +218,7 @@ export default function SettingsScreen() {
                 />
               </View>
             </View>
-          </View>
+          </AppGlassCard>
 
           <TouchableOpacity 
             style={styles.logoutButton} 
@@ -310,11 +279,6 @@ const styles = StyleSheet.create({
   neumorphicCard: {
     borderRadius: 40,
     marginBottom: 24,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 40,
-    elevation: 4,
   },
   
   liquidContainerShapeWhite34: {
@@ -374,7 +338,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 20,
-    zIndex: 10,
+    backgroundColor: 'transparent',
   },
   profileAvatar: {
     width: 56,
@@ -394,7 +358,7 @@ const styles = StyleSheet.create({
   },
   profileSubtitle: {
     fontSize: 12,
-    color: MUTED,
+    color: '#64748B',
     fontFamily: 'Poppins',
   },
   chevronIcon: {
@@ -403,7 +367,7 @@ const styles = StyleSheet.create({
   
   optionsContainer: {
     padding: 24,
-    zIndex: 10,
+    backgroundColor: 'transparent',
   },
   optionRow: {
     flexDirection: 'row',
@@ -423,7 +387,7 @@ const styles = StyleSheet.create({
   },
   optionSubtitle: {
     fontSize: 12,
-    color: MUTED,
+    color: '#64748B',
     fontFamily: 'Poppins',
     lineHeight: 16,
   },

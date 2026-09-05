@@ -19,6 +19,7 @@ import { GlassView, GlassContainer } from 'expo-glass-effect';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppBottomNavigation, useBottomNavigationContentInset } from '../components/AppBottomNavigation';
+import { AppGlassCard } from '../components/AppGlassCard';
 
 const BLUE = '#0A6DFF';
 const TEXT = '#111827';
@@ -107,54 +108,24 @@ export default function HomeScreen() {
         >
           
           <View style={styles.glovesRow}>
-            <View style={styles.gloveCard}>
-              <GlassContainer style={styles.liquidContainerShapeWhite24}>
-                <GlassView style={styles.liquidBaseBlurWhite} />
-              </GlassContainer>
-              <LinearGradient
-                colors={['rgba(255, 255, 255, 0.6)', 'rgba(255, 255, 255, 0.05)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.liquidLightOverlayWhite24}
-              />
-              <View style={styles.liquidReflectionLipWhite24} />
+            <AppGlassCard style={styles.gloveCard} borderRadius={36}>
 
               <Text style={styles.gloveLabel}>Luva Esquerda</Text>
               <View style={styles.progressCircle}>
                 <Text style={styles.progressText}>66</Text>
               </View>
-            </View>
+            </AppGlassCard>
 
-            <View style={styles.gloveCard}>
-              <GlassContainer style={styles.liquidContainerShapeWhite24}>
-                <GlassView style={styles.liquidBaseBlurWhite} />
-              </GlassContainer>
-              <LinearGradient
-                colors={['rgba(255, 255, 255, 0.6)', 'rgba(255, 255, 255, 0.05)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.liquidLightOverlayWhite24}
-              />
-              <View style={styles.liquidReflectionLipWhite24} />
+            <AppGlassCard style={styles.gloveCard} borderRadius={36}>
 
               <Text style={styles.gloveLabel}>Luva Direita</Text>
               <View style={styles.progressCircle}>
                 <Text style={styles.progressText}>50</Text>
               </View>
-            </View>
+            </AppGlassCard>
           </View>
 
-          <View style={styles.neumorphicCard}>
-            <GlassContainer style={styles.liquidContainerShapeWhite34}>
-              <GlassView style={styles.liquidBaseBlurWhite} />
-            </GlassContainer>
-            <LinearGradient
-              colors={['rgba(255, 255, 255, 0.6)', 'rgba(255, 255, 255, 0.05)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.liquidLightOverlayWhite34}
-            />
-            <View style={styles.liquidReflectionLipWhite34} />
+          <AppGlassCard style={styles.neumorphicCard}>
 
             <View style={styles.cardHeader}>
               <Text style={styles.cardHeaderTitle}>Última frase reprod.</Text>
@@ -217,19 +188,9 @@ export default function HomeScreen() {
                 <Text style={styles.emptyText}>Nenhum registro de sinais ou frases recente.</Text>
               </View>
             )}
-          </View>
+          </AppGlassCard>
 
-          <View style={styles.neumorphicCard}>
-            <GlassContainer style={styles.liquidContainerShapeWhite34}>
-              <GlassView style={styles.liquidBaseBlurWhite} />
-            </GlassContainer>
-            <LinearGradient
-              colors={['rgba(255, 255, 255, 0.6)', 'rgba(255, 255, 255, 0.05)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.liquidLightOverlayWhite34}
-            />
-            <View style={styles.liquidReflectionLipWhite34} />
+          <AppGlassCard style={styles.neumorphicCard}>
 
             <View style={styles.cardHeader}>
               <Text style={styles.cardHeaderTitle}>Atalhos</Text>
@@ -269,7 +230,7 @@ export default function HomeScreen() {
                 }
               />
             </View>
-          </View>
+          </AppGlassCard>
 
         </ScrollView>
       </View>
@@ -427,11 +388,6 @@ const styles = StyleSheet.create({
     borderRadius: 36,
     paddingVertical: 24,
     alignItems: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 40,
-    elevation: 4,
   },
   
   liquidContainerShapeWhite24: {
@@ -485,7 +441,7 @@ const styles = StyleSheet.create({
 
   gloveLabel: {
     fontSize: 12,
-    color: MUTED,
+    color: '#64748B',
     fontFamily: 'Poppins',
     marginBottom: 16,
     zIndex: 10,
@@ -499,7 +455,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 10,
+    backgroundColor: 'transparent',
   },
   progressText: {
     fontSize: 36,
@@ -512,11 +468,6 @@ const styles = StyleSheet.create({
     borderRadius: 34,
     padding: 24,
     marginBottom: 24,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 40,
-    elevation: 4,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -527,12 +478,12 @@ const styles = StyleSheet.create({
   },
   cardHeaderTitle: {
     fontSize: 13,
-    color: MUTED,
+    color: '#475569',
     fontFamily: 'Poppins',
   },
   cardHeaderTime: {
     fontSize: 12,
-    color: MUTED,
+    color: '#64748B',
     fontFamily: 'Poppins',
   },
   phraseText: {
@@ -547,11 +498,11 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 10,
+    backgroundColor: 'transparent',
   },
   emptyText: {
     fontSize: 13,
-    color: MUTED,
+    color: '#64748B',
     fontFamily: 'Poppins',
     textAlign: 'center',
   },
@@ -641,7 +592,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    zIndex: 10,
+    backgroundColor: 'transparent',
   },
   shortcutItem: {
     alignItems: 'center',
