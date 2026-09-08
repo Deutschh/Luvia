@@ -153,75 +153,62 @@ export default function DictionaryScreen() {
       <StatusBar style="dark" />
       <View style={styles.container}>
 
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Dicionário</Text>
-          <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.addButton} activeOpacity={0.8} onPress={() => router.push('/add')}>
-              <Feather name="plus" size={24} color={BRANCO} />
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.searchButtonWrapper} 
-              activeOpacity={0.75}
-              onPress={() => router.push('/search')}
-            >
-              <GlassContainer style={StyleSheet.absoluteFill}>
-                <GlassView style={styles.glassEffect} />
-              </GlassContainer>
+        <View style={styles.topArea}>
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Dicionário</Text>
+            <View style={styles.headerActions}>
+              <TouchableOpacity style={styles.addButton} activeOpacity={0.8} onPress={() => router.push('/add')}>
+                <Feather name="plus" size={24} color={BRANCO} />
+              </TouchableOpacity>
               
-              <Image
-                source={PESQUISA}
-                style={styles.searchIcon}
-                resizeMode="contain"
-              />
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.searchButtonWrapper}
+                activeOpacity={0.75}
+                onPress={() => router.push('/search')}
+              >
+                <GlassContainer style={StyleSheet.absoluteFill}>
+                  <GlassView style={styles.glassEffect} />
+                </GlassContainer>
+
+                <Image
+                  source={PESQUISA}
+                  style={styles.searchIcon}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ overflow: 'visible' }}
+              contentContainerStyle={styles.categoriesContainer}
+            >
+              {categoryOptions.map((category, index) => {
+                const isActive = activeCategory === category.slug;
+                return (
+                  <TouchableOpacity
+                    key={category.id || index}
+                    activeOpacity={0.85}
+                    onPress={() => setActiveCategory(category.slug)}
+                    style={isActive ? styles.pillActiveWrapper : styles.pillInactiveWrapper}
+                  >
+                    {isActive && <View style={styles.inactiveFill} />}
+
+                    <Text style={isActive ? styles.categoryTextActive : styles.categoryTextInactive}>
+                      {category.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </View>
         </View>
 
-        <View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ overflow: 'visible' }}
-            contentContainerStyle={styles.categoriesContainer}
-          >
-            {categoryOptions.map((category, index) => {
-              const isActive = activeCategory === category.slug;
-              return (
-                <TouchableOpacity
-                  key={category.id || index}
-                  activeOpacity={0.85}
-                  onPress={() => setActiveCategory(category.slug)}
-                  style={isActive ? styles.pillActiveWrapper : styles.pillInactiveWrapper}
-                >
-                  {isActive ? (
-                    <View style={styles.inactiveFill} />
-                  ) : (
-                    <>
-                      <GlassContainer style={styles.pillShape}>
-                        <GlassView style={styles.glassBase} />
-                      </GlassContainer>
-                      <LinearGradient
-                        colors={['rgba(255, 255, 255, 0.6)', 'rgba(255, 255, 255, 0.05)']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.pillShape}
-                      />
-                      <View style={styles.glassReflectionLip} />
-                    </>
-                  )}
-                  
-                  <Text style={isActive ? styles.categoryTextActive : styles.categoryTextInactive}>
-                    {category.name}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-
         <ScrollView
-          style={{ overflow: 'visible' }}
+          style={styles.list}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[styles.listContainer, { paddingBottom: bottomNavigationContentInset }]}
         >
@@ -297,6 +284,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  topArea: {
+    backgroundColor: BRANCO,
+    zIndex: 1,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -363,28 +354,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 24,
-    elevation: 4,
-  },
-  pillShape: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 24,
-    overflow: 'hidden',
-  },
-  glassBase: {
-    flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)', 
-  },
-  glassReflectionLip: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 24,
-    borderTopWidth: 1.5,
-    borderLeftWidth: 1.5,
-    borderBottomWidth: 0.5,
-    borderRightWidth: 0.5,
-    borderTopColor: 'rgba(255, 255, 255, 0.8)',
-    borderLeftColor: 'rgba(255, 255, 255, 0.5)',
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-    borderRightColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#F5F7FA',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
   },
   inactiveFill: {
     ...StyleSheet.absoluteFillObject,
@@ -410,6 +382,10 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
     paddingTop: 20,
     gap: 16,
+  },
+  list: {
+    flex: 1,
+    overflow: 'hidden',
   },
   card: {
     borderRadius: 40,

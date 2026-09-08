@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { GlassView, GlassContainer } from 'expo-glass-effect';
 import { LinearGradient } from 'expo-linear-gradient';
+import { AppGlassCard } from '../components/AppGlassCard';
 
 const BLUE = '#0A6DFF';
 const TEXT = '#111827';
@@ -159,18 +160,8 @@ export default function NotificationScreen() {
               const iconColors = getGradientColors(item.color);
 
               return (
-                <TouchableOpacity key={item.id} style={styles.card} activeOpacity={0.8}>
-                  
-                  <GlassContainer style={styles.liquidContainerShapeCard}>
-                    <GlassView style={styles.liquidBaseBlurWhite} />
-                  </GlassContainer>
-                  <LinearGradient
-                    colors={['rgba(255, 255, 255, 0.8)', 'rgba(255, 255, 255, 0.05)']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.liquidLightOverlayCard}
-                  />
-                  <View style={styles.liquidReflectionLipCard} />
+                <AppGlassCard key={item.id} style={styles.card} borderRadius={40}>
+                  <TouchableOpacity style={styles.cardContent} activeOpacity={0.8}>
 
                   <View style={styles.iconCircle}>
                     <GlassContainer style={styles.liquidContainerShapeShortcut}>
@@ -200,7 +191,8 @@ export default function NotificationScreen() {
 
                   <Text style={styles.timeText}>{item.time}</Text>
 
-                </TouchableOpacity>
+                  </TouchableOpacity>
+                </AppGlassCard>
               );
             })}
           </ScrollView>
@@ -294,43 +286,15 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   card: {
+    borderRadius: 40,
+    minHeight: 80,
+  },
+  cardContent: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 40,
     padding: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 30,
-    elevation: 4,
     minHeight: 80,
-  },
-
-  /* EFEITO LIQUID GLASS - CARD */
-  liquidContainerShapeCard: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 40,
-    overflow: 'hidden',
-  },
-  liquidBaseBlurWhite: {
-    flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)', 
-  },
-  liquidLightOverlayCard: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 40,
-  },
-  liquidReflectionLipCard: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 40,
-    borderTopWidth: 1.5,
-    borderLeftWidth: 1.5,
-    borderBottomWidth: 0.5,
-    borderRightWidth: 0.5,
-    borderTopColor: 'rgba(255, 255, 255, 0.9)',
-    borderLeftColor: 'rgba(255, 255, 255, 0.6)',
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-    borderRightColor: 'rgba(255, 255, 255, 0.1)',
   },
 
   /* EFEITO LIQUID GLASS - ÍCONES */
@@ -374,7 +338,6 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 16,
     marginRight: 10,
-    zIndex: 10,
   },
   cardTitle: {
     fontSize: 16,
@@ -393,7 +356,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'PoppinsM',
     color: MUTED,
-    zIndex: 10,
     alignSelf: 'flex-start',
     marginTop: 4, 
   },

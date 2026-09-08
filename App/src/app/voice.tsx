@@ -17,9 +17,9 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { GlassView, GlassContainer } from 'expo-glass-effect';
-import { LinearGradient } from 'expo-linear-gradient';
 import Slider from '@react-native-community/slider';
 import { getMySettings, updateMySettings, type UpdateUserSettingsData } from '../services/settingsService';
+import { AppGlassCard } from '../components/AppGlassCard';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -30,9 +30,6 @@ const TEXT = '#111827';
 const MUTED = '#9CA3AF';
 const BRANCO = '#FFFFFF';
 const BORDER = '#F3F4F6';
-
-const LIQUID_BASE_WHITE = 'rgba(255, 255, 255, 0.15)';
-const LIQUID_OVERLAY_VOICE_START = 'rgba(255, 255, 255, 0.6)';
 
 const VOICES = [
   'Voz 1 (Masculina)',
@@ -249,21 +246,11 @@ export default function VoiceSettingsScreen() {
             </View>
           </View>
 
-          <View style={[styles.section, { zIndex: 10 }]}>
+          <View style={styles.section}>
             <Text style={styles.sectionTitle}>Seleção da Voz</Text>
             <View style={styles.separator} />
             
-            <View style={styles.dropdownCard}>
-              <GlassContainer style={styles.liquidContainerShapeWhite34}>
-                <GlassView style={[styles.liquidBaseBlurWhite, { backgroundColor: LIQUID_BASE_WHITE }]} />
-              </GlassContainer>
-              <LinearGradient
-                colors={[LIQUID_OVERLAY_VOICE_START, 'rgba(255, 255, 255, 0.05)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.liquidLightOverlayWhite34}
-              />
-              <View style={styles.liquidReflectionLipWhite34} />
+            <AppGlassCard style={styles.dropdownCard}>
 
               <TouchableOpacity 
                 style={styles.dropdownHeader} 
@@ -302,7 +289,7 @@ export default function VoiceSettingsScreen() {
                   ))}
                 </View>
               )}
-            </View>
+            </AppGlassCard>
           </View>
 
         </ScrollView>
@@ -437,38 +424,9 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: '#D1D5DB',
   },
-  liquidContainerShapeWhite34: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 34,
-    overflow: 'hidden',
-  },
-  liquidLightOverlayWhite34: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 34,
-  },
-  liquidReflectionLipWhite34: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 34,
-    borderTopWidth: 1.5,
-    borderLeftWidth: 1.5,
-    borderBottomWidth: 0.5,
-    borderRightWidth: 0.5,
-    borderTopColor: 'rgba(255, 255, 255, 0.9)',
-    borderLeftColor: 'rgba(255, 255, 255, 0.6)',
-    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
-    borderRightColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  liquidBaseBlurWhite: {
-    flex: 1,
-  },
   dropdownCard: {
     borderRadius: 34,
     width: '75%',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 40,
-    elevation: 4,
   },
   dropdownHeader: {
     flexDirection: 'row',
@@ -476,8 +434,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 18,
     paddingHorizontal: 24,
-    zIndex: 10,
     height: 56,
+    backgroundColor: 'transparent',
   },
   dropdownHeaderText: {
     fontSize: 13,
@@ -490,7 +448,7 @@ const styles = StyleSheet.create({
   dropdownList: {
     paddingHorizontal: 24,
     paddingBottom: 16,
-    zIndex: 10,
+    backgroundColor: 'transparent',
   },
   voiceItem: {
     flexDirection: 'row',
