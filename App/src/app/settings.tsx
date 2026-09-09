@@ -180,6 +180,16 @@ export default function SettingsScreen() {
                 </View>
                 <Image source={DIREITA} style={styles.arrowright} resizeMode="contain" />
               </TouchableOpacity>
+
+              <View style={styles.optionSpacing} />
+
+              <TouchableOpacity style={styles.optionRow} activeOpacity={0.7} onPress={() => router.push('/notification')}>
+                <View style={styles.optionTextContainer}>
+                  <Text style={styles.optionTitle}>Notificações</Text>
+                  <Text style={styles.optionSubtitle}>Veja os avisos do aplicativo.</Text>
+                </View>
+                <Image source={DIREITA} style={styles.arrowright} resizeMode="contain" />
+              </TouchableOpacity>
             </View>
           </AppGlassCard>
 
