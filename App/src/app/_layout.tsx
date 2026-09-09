@@ -27,6 +27,7 @@ const PUBLIC_ROUTES = [
 const PRIVATE_ROUTES = [
   '/home',
   '/dictionary',
+  '/translate',
   '/search',
   '/add',
   '/signal',
