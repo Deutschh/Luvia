@@ -63,6 +63,60 @@ npm run lint
 
 Para um dispositivo físico, `EXPO_PUBLIC_API_URL` deve apontar para uma URL alcançável pelo dispositivo; `localhost` e `10.0.2.2` são apropriados somente para cenários locais específicos.
 
+## Build Android interno — APK preview
+
+O perfil `preview` do EAS gera um APK de distribuição interna, instalável diretamente em dispositivos Android. Esse build inclui o bundle do App e não depende do Expo Go nem de `npx expo start` para funcionar.
+
+### Pré-requisitos
+
+- Conta Expo com acesso ao projeto EAS vinculado ao Luvia.
+- Acesso ao painel do projeto para conferir o ambiente `preview`.
+- Android com permissão para instalar aplicativos de fontes externas ou `adb` configurado no computador.
+
+Antes de iniciar o build, configure e confirme no ambiente EAS `preview`, sem registrar os valores no repositório:
+
+| Variável | Finalidade |
+| --- | --- |
+| `EXPO_PUBLIC_API_URL` | URL HTTPS pública da API online no Render |
+| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Client ID web usado pelo Google Login nativo |
+
+O arquivo local `App/.env` é ignorado pelo Git e não deve ser usado como garantia para o build remoto. As variáveis do ambiente EAS `preview` são incorporadas ao bundle durante o build.
+
+### Gerar o APK
+
+Depois de confirmar as duas variáveis no EAS, execute os comandos abaixo a partir da raiz do repositório. O primeiro comando entra em `App/`, onde estão `eas.json` e `app.json`:
+
+```powershell
+cd App
+npx --yes eas-cli@20.1.0 whoami
+npx --yes eas-cli@20.1.0 project:info
+npx --yes eas-cli@20.1.0 build --platform android --profile preview --clear-cache
+```
+
+O perfil `preview` está configurado com distribuição interna e `android.buildType` igual a `apk`. Não use o perfil `production` nesta etapa, pois ele é destinado ao fluxo de publicação.
+
+### Instalar no Android
+
+Ao concluir o build, abra no celular o link ou QR code fornecido pelo EAS, baixe o APK e autorize a instalação quando solicitado.
+
+Como alternativa, baixe o APK no computador, conecte o dispositivo com a depuração USB habilitada e execute:
+
+```powershell
+adb install -r caminho\Luvia-preview.apk
+```
+
+Se o Android recusar a atualização por incompatibilidade de assinatura, será necessário remover a instalação anterior do mesmo pacote antes de instalar o APK. Essa remoção apaga os dados locais do App.
+
+### Checklist pós-build
+
+- Abrir o Luvia pelo ícone com Expo Go e Metro fechados.
+- Confirmar que o App não solicita endereço de servidor de desenvolvimento.
+- Testar cadastro, login, sessão salva, reconexão e logout usando a API online.
+- Fechar e reabrir o App para validar a persistência da sessão.
+- Percorrer as cinco abas e confirmar o acesso às rotas privadas.
+- Testar o Google Login separadamente e validar a configuração do certificado Android caso ele falhe.
+- Repetir um teste fora da rede local usada no desenvolvimento para confirmar que o APK não utiliza endereço local.
+
 ## Rodar a API
 
 ```powershell
