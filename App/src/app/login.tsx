@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -38,18 +39,22 @@ export default function LoginScreen() {
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const { signIn, signInWithGoogle } = useAuth();
 
-  const isFormValid = email.trim().length > 0 && password.trim().length > 0;
+  const isFormValid =
+    email.trim().length > 0 && password.length > 0 && !loading;
 
   async function handleLogin() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!emailRegex.test(email)) {
-      alert('Por favor, insira um e-mail válido (ex: seuemail@dominio.com)');
+      Alert.alert(
+        'E-mail inválido',
+        'Por favor, insira um e-mail válido (ex: seuemail@dominio.com)'
+      );
       return;
     }
 
-    if (password.trim().length < 6) {
-      alert('A senha precisa ter pelo menos 6 caracteres.');
+    if (password.length === 0) {
+      Alert.alert('Senha obrigatória', 'Informe sua senha para continuar.');
       return;
     }
 
@@ -68,7 +73,7 @@ export default function LoginScreen() {
           ? error.message
           : 'Não foi possível fazer login.';
 
-      alert(message);
+      Alert.alert('Não foi possível entrar', message);
     } finally {
       setLoading(false);
     }

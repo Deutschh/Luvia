@@ -13,10 +13,168 @@ const defaultLocalhost =
 
 export const API_URL = process.env.EXPO_PUBLIC_API_URL || defaultLocalhost;
 
+const REQUEST_TIMEOUT_MS = 30_000;
+const TIMEOUT_ERROR_MESSAGE =
+  'A solicitação demorou mais que o esperado. Verifique sua conexão e tente novamente.';
+const NETWORK_ERROR_MESSAGE =
+  'Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.';
+const INVALID_RESPONSE_ERROR_MESSAGE =
+  'O servidor retornou uma resposta inválida. Tente novamente.';
+
 type ApiRequestOptions = RequestInit & {
   useAuth?: boolean;
   retry?: boolean;
 };
+
+type ParsedResponseBody =
+  | { kind: 'empty'; data: null }
+  | { kind: 'json'; data: unknown }
+  | { kind: 'invalid'; data: null };
+
+type ApiResponse = {
+  response: Response;
+  body: ParsedResponseBody;
+};
+
+function getApiMessage(data: unknown) {
+  if (!data || typeof data !== 'object') {
+    return null;
+  }
+
+  const payload = data as Record<string, unknown>;
+  const message =
+    typeof payload.message === 'string' && payload.message.trim()
+      ? payload.message.trim()
+      : null;
+  const validationMessage = Array.isArray(payload.errors)
+    ? payload.errors.find(
+        (issue): issue is { message: string } =>
+          Boolean(
+            issue &&
+              typeof issue === 'object' &&
+              'message' in issue &&
+              typeof issue.message === 'string' &&
+              issue.message.trim()
+          )
+      )?.message.trim()
+    : null;
+
+  if (validationMessage && (!message || message === 'Dados inválidos.')) {
+    return validationMessage;
+  }
+
+  return message;
+}
+
+function getHttpErrorMessage(response: Response, data: unknown) {
+  const apiMessage = getApiMessage(data);
+
+  if (apiMessage) {
+    return apiMessage;
+  }
+
+  if (response.status >= 500) {
+    return 'O servidor está temporariamente indisponível. Tente novamente em instantes.';
+  }
+
+  switch (response.status) {
+    case 400:
+      return 'Os dados enviados não foram aceitos. Revise as informações e tente novamente.';
+    case 401:
+      return 'Não foi possível autorizar a solicitação.';
+    case 403:
+      return 'Você não tem permissão para realizar esta ação.';
+    case 404:
+      return 'O recurso solicitado não foi encontrado.';
+    case 409:
+      return 'Não foi possível concluir porque os dados já existem.';
+    default:
+      return 'Não foi possível concluir a solicitação. Tente novamente.';
+  }
+}
+
+async function parseResponseBody(response: Response): Promise<ParsedResponseBody> {
+  if (response.status === 204) {
+    return { kind: 'empty', data: null };
+  }
+
+  const text = await response.text();
+
+  if (!text.trim()) {
+    return { kind: 'empty', data: null };
+  }
+
+  try {
+    return { kind: 'json', data: JSON.parse(text) };
+  } catch {
+    return { kind: 'invalid', data: null };
+  }
+}
+
+async function requestWithTimeout(
+  url: string,
+  options: RequestInit = {}
+): Promise<ApiResponse> {
+  const controller = new AbortController();
+  const callerSignal = options.signal;
+  let didTimeout = false;
+
+  const cancelFromCaller = () => controller.abort();
+
+  if (callerSignal?.aborted) {
+    controller.abort();
+  } else {
+    callerSignal?.addEventListener('abort', cancelFromCaller, { once: true });
+  }
+
+  const timeoutId = setTimeout(() => {
+    didTimeout = true;
+    controller.abort();
+  }, REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    const body = await parseResponseBody(response);
+
+    return { response, body };
+  } catch {
+    if (didTimeout) {
+      throw new Error(TIMEOUT_ERROR_MESSAGE);
+    }
+
+    if (callerSignal?.aborted) {
+      const cancellationError = new Error('A solicitação foi cancelada.');
+      cancellationError.name = 'AbortError';
+      throw cancellationError;
+    }
+
+    throw new Error(NETWORK_ERROR_MESSAGE);
+  } finally {
+    clearTimeout(timeoutId);
+    callerSignal?.removeEventListener('abort', cancelFromCaller);
+  }
+}
+
+function getResponseData<T>({ response, body }: ApiResponse): T {
+  if (!response.ok) {
+    throw new Error(
+      getHttpErrorMessage(response, body.kind === 'json' ? body.data : null)
+    );
+  }
+
+  if (response.status === 204) {
+    return null as T;
+  }
+
+  if (body.kind !== 'json') {
+    throw new Error(INVALID_RESPONSE_ERROR_MESSAGE);
+  }
+
+  return body.data as T;
+}
 
 let refreshAccessTokenPromise: Promise<string> | null = null;
 
@@ -33,7 +191,7 @@ async function refreshAccessToken() {
       throw new Error('Refresh token não encontrado.');
     }
 
-    const response = await fetch(`${API_URL}/auth/refresh`, {
+    const refreshResponse = await requestWithTimeout(`${API_URL}/auth/refresh`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -41,16 +199,31 @@ async function refreshAccessToken() {
       body: JSON.stringify({ refreshToken }),
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
+    if (!refreshResponse.response.ok) {
+      const message = getHttpErrorMessage(
+        refreshResponse.response,
+        refreshResponse.body.kind === 'json' ? refreshResponse.body.data : null
+      );
       await clearTokens();
-      throw new Error(data.message || 'Sessão expirada. Faça login novamente.');
+      throw new Error(message);
+    }
+
+    const data = getResponseData<unknown>(refreshResponse);
+
+    if (
+      !data ||
+      typeof data !== 'object' ||
+      !('token' in data) ||
+      typeof data.token !== 'string' ||
+      !('refreshToken' in data) ||
+      typeof data.refreshToken !== 'string'
+    ) {
+      throw new Error(INVALID_RESPONSE_ERROR_MESSAGE);
     }
 
     await saveTokens(data.token, data.refreshToken);
 
-    return data.token as string;
+    return data.token;
   })();
 
   try {
@@ -58,20 +231,6 @@ async function refreshAccessToken() {
   } finally {
     refreshAccessTokenPromise = null;
   }
-}
-
-async function parseResponseBody(response: Response) {
-  if (response.status === 204) {
-    return null;
-  }
-
-  const text = await response.text();
-
-  if (!text) {
-    return null;
-  }
-
-  return JSON.parse(text);
 }
 
 export async function apiFetch<T>(
@@ -94,15 +253,15 @@ export async function apiFetch<T>(
     }
   }
 
-  const response = await fetch(`${API_URL}${path}`, {
+  const apiResponse = await requestWithTimeout(`${API_URL}${path}`, {
     ...rest,
     headers: requestHeaders,
   });
 
-  if (response.status === 401 && useAuth && retry) {
+  if (apiResponse.response.status === 401 && useAuth && retry) {
     const newToken = await refreshAccessToken();
 
-    const retryResponse = await fetch(`${API_URL}${path}`, {
+    const retryResponse = await requestWithTimeout(`${API_URL}${path}`, {
       ...rest,
       headers: {
         ...requestHeaders,
@@ -110,28 +269,8 @@ export async function apiFetch<T>(
       },
     });
 
-    const retryData = await parseResponseBody(retryResponse);
-
-    if (!retryResponse.ok) {
-      throw new Error(
-        retryData && typeof retryData === 'object' && 'message' in retryData
-          ? String(retryData.message)
-          : 'Erro na requisição.'
-      );
-    }
-
-    return retryData as T;
+    return getResponseData<T>(retryResponse);
   }
 
-  const data = await parseResponseBody(response);
-
-  if (!response.ok) {
-    throw new Error(
-      data && typeof data === 'object' && 'message' in data
-        ? String(data.message)
-        : 'Erro na requisição.'
-    );
-  }
-
-  return data as T;
+  return getResponseData<T>(apiResponse);
 }

@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -41,32 +42,32 @@ export default function RegisterScreen() {
   const { signInWithGoogle, signUp } = useAuth();
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const isFormValid =
-  name.trim().length >= 3 &&
-  phone.replace(/\D/g, '').length >= 10 &&
-  emailRegex.test(email) &&
-  password.trim().length >= 6 &&
-  !loading;
+  const isFormValid =
+    name.trim().length >= 3 &&
+    phone.replace(/\D/g, '').length >= 10 &&
+    emailRegex.test(email) &&
+    password.length >= 8 &&
+    !loading;
 
   async function handleRegister() {
 
     if (name.trim().length < 3) {
-      alert('Informe seu nome completo.');
+      Alert.alert('Nome inválido', 'Informe seu nome completo.');
       return;
     }
 
     if (phone.replace(/\D/g, '').length < 10) {
-      alert('Informe um telefone válido.');
+      Alert.alert('Celular inválido', 'Informe um telefone válido.');
       return;
     }
 
     if (!emailRegex.test(email)) {
-      alert('Por favor, insira um e-mail válido para o cadastro.');
+      Alert.alert('E-mail inválido', 'Por favor, insira um e-mail válido para o cadastro.');
       return;
     }
 
-    if (password.trim().length < 6) {
-      alert('A senha precisa ter pelo menos 6 caracteres.');
+    if (password.length < 8) {
+      Alert.alert('Senha inválida', 'A senha precisa ter pelo menos 8 caracteres.');
       return;
     }
 
@@ -87,7 +88,7 @@ const isFormValid =
           ? error.message
           : 'Não foi possível fazer o cadastro.';
 
-      alert(message);
+      Alert.alert('Não foi possível cadastrar', message);
     } finally {
       setLoading(false);
     }
