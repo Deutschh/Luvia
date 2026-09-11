@@ -21,6 +21,75 @@ const NETWORK_ERROR_MESSAGE =
 const INVALID_RESPONSE_ERROR_MESSAGE =
   'O servidor retornou uma resposta inválida. Tente novamente.';
 
+export type ApiErrorKind =
+  | 'network'
+  | 'timeout'
+  | 'cancelled'
+  | 'invalid-response'
+  | 'http'
+  | 'session-invalid';
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly kind: ApiErrorKind,
+    public readonly status?: number
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+type SessionInvalidationListener = () => void;
+
+const sessionInvalidationListeners = new Set<SessionInvalidationListener>();
+
+export function subscribeToSessionInvalidation(
+  listener: SessionInvalidationListener
+) {
+  sessionInvalidationListeners.add(listener);
+
+  return () => {
+    sessionInvalidationListeners.delete(listener);
+  };
+}
+
+export function isSessionInvalidError(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.kind === 'session-invalid';
+}
+
+export function isTemporaryApiError(error: unknown): error is ApiError {
+  if (!(error instanceof ApiError)) {
+    return false;
+  }
+
+  return (
+    error.kind === 'network' ||
+    error.kind === 'timeout' ||
+    error.kind === 'invalid-response' ||
+    (error.kind === 'http' &&
+      (error.status === 429 || Boolean(error.status && error.status >= 500)))
+  );
+}
+
+async function invalidateSession(message: string, status?: number) {
+  try {
+    await clearTokens();
+  } catch {
+    // The interface must still leave the authenticated state if secure storage fails.
+  }
+
+  sessionInvalidationListeners.forEach((listener) => {
+    try {
+      listener();
+    } catch {
+      // One listener must not prevent the remaining subscribers from updating.
+    }
+  });
+
+  return new ApiError(message, 'session-invalid', status);
+}
+
 type ApiRequestOptions = RequestInit & {
   useAuth?: boolean;
   retry?: boolean;
@@ -142,16 +211,19 @@ async function requestWithTimeout(
     return { response, body };
   } catch {
     if (didTimeout) {
-      throw new Error(TIMEOUT_ERROR_MESSAGE);
+      throw new ApiError(TIMEOUT_ERROR_MESSAGE, 'timeout');
     }
 
     if (callerSignal?.aborted) {
-      const cancellationError = new Error('A solicitação foi cancelada.');
+      const cancellationError = new ApiError(
+        'A solicitação foi cancelada.',
+        'cancelled'
+      );
       cancellationError.name = 'AbortError';
       throw cancellationError;
     }
 
-    throw new Error(NETWORK_ERROR_MESSAGE);
+    throw new ApiError(NETWORK_ERROR_MESSAGE, 'network');
   } finally {
     clearTimeout(timeoutId);
     callerSignal?.removeEventListener('abort', cancelFromCaller);
@@ -160,8 +232,10 @@ async function requestWithTimeout(
 
 function getResponseData<T>({ response, body }: ApiResponse): T {
   if (!response.ok) {
-    throw new Error(
-      getHttpErrorMessage(response, body.kind === 'json' ? body.data : null)
+    throw new ApiError(
+      getHttpErrorMessage(response, body.kind === 'json' ? body.data : null),
+      'http',
+      response.status
     );
   }
 
@@ -170,7 +244,7 @@ function getResponseData<T>({ response, body }: ApiResponse): T {
   }
 
   if (body.kind !== 'json') {
-    throw new Error(INVALID_RESPONSE_ERROR_MESSAGE);
+    throw new ApiError(INVALID_RESPONSE_ERROR_MESSAGE, 'invalid-response');
   }
 
   return body.data as T;
@@ -187,8 +261,7 @@ async function refreshAccessToken() {
     const refreshToken = await getRefreshToken();
 
     if (!refreshToken) {
-      await clearTokens();
-      throw new Error('Refresh token não encontrado.');
+      throw await invalidateSession('Refresh token não encontrado.', 401);
     }
 
     const refreshResponse = await requestWithTimeout(`${API_URL}/auth/refresh`, {
@@ -204,8 +277,15 @@ async function refreshAccessToken() {
         refreshResponse.response,
         refreshResponse.body.kind === 'json' ? refreshResponse.body.data : null
       );
-      await clearTokens();
-      throw new Error(message);
+
+      if (
+        refreshResponse.response.status === 400 ||
+        refreshResponse.response.status === 401
+      ) {
+        throw await invalidateSession(message, refreshResponse.response.status);
+      }
+
+      throw new ApiError(message, 'http', refreshResponse.response.status);
     }
 
     const data = getResponseData<unknown>(refreshResponse);
@@ -218,7 +298,7 @@ async function refreshAccessToken() {
       !('refreshToken' in data) ||
       typeof data.refreshToken !== 'string'
     ) {
-      throw new Error(INVALID_RESPONSE_ERROR_MESSAGE);
+      throw new ApiError(INVALID_RESPONSE_ERROR_MESSAGE, 'invalid-response');
     }
 
     await saveTokens(data.token, data.refreshToken);
@@ -268,6 +348,15 @@ export async function apiFetch<T>(
         Authorization: `Bearer ${newToken}`,
       },
     });
+
+    if (retryResponse.response.status === 401) {
+      const message = getHttpErrorMessage(
+        retryResponse.response,
+        retryResponse.body.kind === 'json' ? retryResponse.body.data : null
+      );
+
+      throw await invalidateSession(message, retryResponse.response.status);
+    }
 
     return getResponseData<T>(retryResponse);
   }

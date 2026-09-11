@@ -7,6 +7,11 @@ import {
   useState,
 } from 'react';
 import {
+  isSessionInvalidError,
+  isTemporaryApiError,
+  subscribeToSessionInvalidation,
+} from '../services/api';
+import {
   getMe,
   login,
   logout,
@@ -14,7 +19,11 @@ import {
   signInWithGoogle as signInWithGoogleService,
   User,
 } from '../services/authService';
-import { getAccessToken } from '../services/tokenStorage';
+import {
+  clearTokens,
+  getAccessToken,
+  getRefreshToken,
+} from '../services/tokenStorage';
 
 type SignInData = {
   email: string;
@@ -31,6 +40,7 @@ type SignUpData = {
 type AuthContextData = {
   user: User | null;
   loading: boolean;
+  sessionUnavailable: boolean;
   signIn: (data: SignInData) => Promise<void>;
   signUp: (data: SignUpData) => Promise<void>;
   signInWithGoogle: () => Promise<User | null>;
@@ -47,22 +57,42 @@ type AuthProviderProps = {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionUnavailable, setSessionUnavailable] = useState(false);
 
   const loadUser = useCallback(async () => {
     setLoading(true);
 
     try {
-      const token = await getAccessToken();
+      const [accessToken, refreshToken] = await Promise.all([
+        getAccessToken(),
+        getRefreshToken(),
+      ]);
 
-      if (!token) {
+      if (!accessToken && !refreshToken) {
         setUser(null);
+        setSessionUnavailable(false);
         return;
       }
 
       const userData = await getMe();
       setUser(userData);
-    } catch {
-      setUser(null);
+      setSessionUnavailable(false);
+    } catch (error) {
+      if (isSessionInvalidError(error)) {
+        setUser(null);
+        setSessionUnavailable(false);
+      } else if (isTemporaryApiError(error)) {
+        setSessionUnavailable(true);
+      } else {
+        try {
+          await clearTokens();
+        } catch {
+          // The UI must still leave the authenticated state if secure storage fails.
+        }
+
+        setUser(null);
+        setSessionUnavailable(false);
+      }
     } finally {
       setLoading(false);
     }
@@ -71,11 +101,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   async function signIn(data: SignInData) {
     const userData = await login(data);
     setUser(userData);
+    setSessionUnavailable(false);
   }
 
   async function signUp(data: SignUpData) {
     const userData = await register(data);
     setUser(userData);
+    setSessionUnavailable(false);
   }
 
   async function signInWithGoogle() {
@@ -83,6 +115,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     if (userData) {
       setUser(userData);
+      setSessionUnavailable(false);
     }
 
     return userData;
@@ -93,8 +126,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await logout();
     } finally {
       setUser(null);
+      setSessionUnavailable(false);
     }
   }
+
+  useEffect(() => {
+    return subscribeToSessionInvalidation(() => {
+      setUser(null);
+      setSessionUnavailable(false);
+      setLoading(false);
+    });
+  }, []);
 
   useEffect(() => {
     void loadUser();
@@ -105,6 +147,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       value={{
         user,
         loading,
+        sessionUnavailable,
         signIn,
         signUp,
         signInWithGoogle,
