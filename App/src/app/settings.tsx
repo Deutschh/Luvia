@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -33,12 +33,34 @@ const CONFIGURACOES = require('../../assets/images/Luvia/home/configuracoes.png'
 const DIREITA = require('../../assets/images/Luvia/home/direita.png');
 const AZULDIREITA = require('../../assets/images/Luvia/home/direitaAzul.png'); 
 
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+
+function getSaveStatusLabel(status: SaveStatus) {
+  switch (status) {
+    case 'saving':
+      return 'Salvando...';
+    case 'saved':
+      return 'Salvo';
+    case 'error':
+      return 'Não salvo';
+    default:
+      return null;
+  }
+}
+
 export default function SettingsScreen() {
   const bottomNavigationContentInset = useBottomNavigationContentInset();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isHapticEnabled, setIsHapticEnabled] = useState(true);
   const [profileName, setProfileName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [settingsLoadAttempt, setSettingsLoadAttempt] = useState(0);
+  const [darkModeSaveStatus, setDarkModeSaveStatus] = useState<SaveStatus>('idle');
+  const [hapticSaveStatus, setHapticSaveStatus] = useState<SaveStatus>('idle');
+  const isMountedRef = useRef(true);
+  const darkModeSaveInFlightRef = useRef(false);
+  const hapticSaveInFlightRef = useRef(false);
   const { signOut } = useAuth();
 
   function getFriendlyErrorMessage(error: unknown, fallback: string) {
@@ -54,6 +76,14 @@ export default function SettingsScreen() {
 
     return fallback;
   }
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -81,6 +111,10 @@ export default function SettingsScreen() {
   useEffect(() => {
     let isMounted = true;
 
+    setSettingsLoaded(false);
+    setDarkModeSaveStatus('idle');
+    setHapticSaveStatus('idle');
+
     void getMySettings()
       .then((settings) => {
         if (!isMounted) {
@@ -89,31 +123,89 @@ export default function SettingsScreen() {
 
         setIsDarkMode(settings.darkMode);
         setIsHapticEnabled(settings.hapticFeedback);
+        setSettingsLoaded(true);
       })
       .catch((error) => {
-        // Keep the screen's existing local defaults when settings cannot be loaded.
         if (isMounted) {
-          Alert.alert('Não foi possível carregar as configurações', getFriendlyErrorMessage(error, 'Tente novamente em instantes.'));
+          Alert.alert(
+            'Não foi possível carregar as configurações',
+            getFriendlyErrorMessage(error, 'Tente novamente em instantes.'),
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              {
+                text: 'Tentar novamente',
+                onPress: () => setSettingsLoadAttempt((attempt) => attempt + 1),
+              },
+            ]
+          );
         }
       });
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [settingsLoadAttempt]);
 
-  function handleDarkModeChange(value: boolean) {
+  async function handleDarkModeChange(value: boolean) {
+    if (!settingsLoaded || darkModeSaveInFlightRef.current) {
+      return;
+    }
+
+    const previousValue = isDarkMode;
+    darkModeSaveInFlightRef.current = true;
     setIsDarkMode(value);
-    void updateMySettings({ darkMode: value }).catch((error) => {
-      Alert.alert('Não foi possível salvar', getFriendlyErrorMessage(error, 'Tente novamente em instantes.'));
-    });
+    setDarkModeSaveStatus('saving');
+
+    try {
+      const settings = await updateMySettings({ darkMode: value });
+
+      if (isMountedRef.current) {
+        setIsDarkMode(settings.darkMode);
+        setDarkModeSaveStatus('saved');
+      }
+    } catch (error) {
+      if (isMountedRef.current) {
+        setIsDarkMode(previousValue);
+        setDarkModeSaveStatus('error');
+        Alert.alert(
+          'Não foi possível salvar',
+          getFriendlyErrorMessage(error, 'Tente novamente em instantes.')
+        );
+      }
+    } finally {
+      darkModeSaveInFlightRef.current = false;
+    }
   }
 
-  function handleHapticFeedbackChange(value: boolean) {
+  async function handleHapticFeedbackChange(value: boolean) {
+    if (!settingsLoaded || hapticSaveInFlightRef.current) {
+      return;
+    }
+
+    const previousValue = isHapticEnabled;
+    hapticSaveInFlightRef.current = true;
     setIsHapticEnabled(value);
-    void updateMySettings({ hapticFeedback: value }).catch((error) => {
-      Alert.alert('Não foi possível salvar', getFriendlyErrorMessage(error, 'Tente novamente em instantes.'));
-    });
+    setHapticSaveStatus('saving');
+
+    try {
+      const settings = await updateMySettings({ hapticFeedback: value });
+
+      if (isMountedRef.current) {
+        setIsHapticEnabled(settings.hapticFeedback);
+        setHapticSaveStatus('saved');
+      }
+    } catch (error) {
+      if (isMountedRef.current) {
+        setIsHapticEnabled(previousValue);
+        setHapticSaveStatus('error');
+        Alert.alert(
+          'Não foi possível salvar',
+          getFriendlyErrorMessage(error, 'Tente novamente em instantes.')
+        );
+      }
+    } finally {
+      hapticSaveInFlightRef.current = false;
+    }
   }
 
   async function handleSignOut() {
@@ -200,6 +292,16 @@ export default function SettingsScreen() {
                 <View style={styles.optionTextContainer}>
                   <Text style={styles.optionTitle}>Modo Escuro</Text>
                   <Text style={styles.optionSubtitle}>Aparência do aplicativo no modo claro.</Text>
+                  {getSaveStatusLabel(darkModeSaveStatus) && (
+                    <Text
+                      style={[
+                        styles.saveStatus,
+                        darkModeSaveStatus === 'error' && styles.saveStatusError,
+                      ]}
+                    >
+                      {getSaveStatusLabel(darkModeSaveStatus)}
+                    </Text>
+                  )}
                 </View>
                 <Switch
                   trackColor={{ false: '#E5E7EB', true: BLUE }}
@@ -207,6 +309,7 @@ export default function SettingsScreen() {
                   ios_backgroundColor="#E5E7EB"
                   onValueChange={handleDarkModeChange}
                   value={isDarkMode}
+                  disabled={!settingsLoaded || darkModeSaveStatus === 'saving'}
                   style={styles.switchControl}
                 />
               </View>
@@ -217,6 +320,16 @@ export default function SettingsScreen() {
                 <View style={styles.optionTextContainer}>
                   <Text style={styles.optionTitle}>Feedback Tátil</Text>
                   <Text style={styles.optionSubtitle}>Vibração ao interagir com o aplicativo.</Text>
+                  {getSaveStatusLabel(hapticSaveStatus) && (
+                    <Text
+                      style={[
+                        styles.saveStatus,
+                        hapticSaveStatus === 'error' && styles.saveStatusError,
+                      ]}
+                    >
+                      {getSaveStatusLabel(hapticSaveStatus)}
+                    </Text>
+                  )}
                 </View>
                 <Switch
                   trackColor={{ false: '#E5E7EB', true: BLUE }}
@@ -224,6 +337,7 @@ export default function SettingsScreen() {
                   ios_backgroundColor="#E5E7EB"
                   onValueChange={handleHapticFeedbackChange}
                   value={isHapticEnabled}
+                  disabled={!settingsLoaded || hapticSaveStatus === 'saving'}
                   style={styles.switchControl}
                 />
               </View>
@@ -400,6 +514,15 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontFamily: 'Poppins',
     lineHeight: 16,
+  },
+  saveStatus: {
+    color: BLUE,
+    fontFamily: 'Poppins',
+    fontSize: 11,
+    marginTop: 4,
+  },
+  saveStatusError: {
+    color: '#DC2626',
   },
   optionSpacing: {
     height: 24,

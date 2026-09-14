@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { GlassView, GlassContainer } from 'expo-glass-effect';
 import Slider from '@react-native-community/slider';
-import { getMySettings, updateMySettings, type UpdateUserSettingsData } from '../services/settingsService';
+import {
+  getMySettings,
+  updateMySettings,
+  type UserSettings,
+} from '../services/settingsService';
 import { AppGlassCard } from '../components/AppGlassCard';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -56,6 +60,24 @@ function getSliderFromSpeechRate(speechRate: number) {
   return ((speechRate - 0.5) / 1.5) * 100;
 }
 
+type VoicePreferences = {
+  volume: number;
+  speed: number;
+  selectedVoice: string;
+  autoSpeak: boolean;
+};
+
+type LoadStatus = 'loading' | 'ready' | 'error';
+
+function getVoicePreferences(settings: UserSettings): VoicePreferences {
+  return {
+    volume: settings.speechVolume * 100,
+    speed: getSliderFromSpeechRate(settings.speechRate),
+    selectedVoice: getVoiceLabel(settings.voiceType),
+    autoSpeak: settings.autoSpeak,
+  };
+}
+
 export default function VoiceSettingsScreen() {
   const [volume, setVolume] = useState(50);
   const [speed, setSpeed] = useState(50);
@@ -63,6 +85,12 @@ export default function VoiceSettingsScreen() {
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
+  const [loadStatus, setLoadStatus] = useState<LoadStatus>('loading');
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
+  const confirmedPreferencesRef = useRef<VoicePreferences | null>(null);
+  const saveInFlightRef = useRef(false);
+  const isMountedRef = useRef(true);
   
   const progressAnim = useState(new Animated.Value(0))[0];
 
@@ -81,7 +109,19 @@ export default function VoiceSettingsScreen() {
   }
 
   useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+      progressAnim.stopAnimation();
+    };
+  }, [progressAnim]);
+
+  useEffect(() => {
     let isMounted = true;
+
+    setLoadStatus('loading');
+    setIsDropdownOpen(false);
 
     void getMySettings()
       .then((settings) => {
@@ -89,62 +129,110 @@ export default function VoiceSettingsScreen() {
           return;
         }
 
-        setVolume(settings.speechVolume * 100);
-        setSpeed(getSliderFromSpeechRate(settings.speechRate));
-        setSelectedVoice(getVoiceLabel(settings.voiceType));
-        setAutoSpeak(settings.autoSpeak);
+        const preferences = getVoicePreferences(settings);
+
+        confirmedPreferencesRef.current = preferences;
+        setVolume(preferences.volume);
+        setSpeed(preferences.speed);
+        setSelectedVoice(preferences.selectedVoice);
+        setAutoSpeak(preferences.autoSpeak);
+        setLoadStatus('ready');
       })
       .catch((error) => {
-        // Keep the screen's existing local defaults when settings cannot be loaded.
         if (isMounted) {
-          Alert.alert('Não foi possível carregar as preferências de voz', getFriendlyErrorMessage(error, 'Tente novamente em instantes.'));
+          setLoadStatus('error');
+          Alert.alert(
+            'Não foi possível carregar as preferências de voz',
+            getFriendlyErrorMessage(error, 'Tente novamente em instantes.'),
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              {
+                text: 'Tentar novamente',
+                onPress: () => setLoadAttempt((attempt) => attempt + 1),
+              },
+            ]
+          );
         }
       });
 
     return () => {
       isMounted = false;
     };
-  }, []);
-
-  async function persistVoiceSettings(data: UpdateUserSettingsData, showError = false) {
-    try {
-      await updateMySettings(data);
-      return true;
-    } catch (error) {
-      if (showError) {
-        Alert.alert('Não foi possível salvar', getFriendlyErrorMessage(error, 'Tente novamente em instantes.'));
-      }
-
-      return false;
-    }
-  }
+  }, [loadAttempt]);
 
   async function handleSavePreferences() {
-    const saved = await persistVoiceSettings({
-      voiceType: selectedVoice,
-      speechRate: getSpeechRateFromSlider(speed),
-      speechVolume: volume / 100,
-      autoSpeak,
-    }, true);
-
-    if (!saved) {
+    if (loadStatus !== 'ready' || saveInFlightRef.current) {
       return;
     }
 
-    setShowAlert(true);
-    progressAnim.setValue(0);
-    
-    Animated.timing(progressAnim, {
-      toValue: 1,
-      duration: 3000,
-      useNativeDriver: false,
-    }).start(() => {
-      setShowAlert(false);
-      router.back();
-    });
+    saveInFlightRef.current = true;
+    setIsSaving(true);
+    setIsDropdownOpen(false);
+
+    try {
+      const settings = await updateMySettings({
+        voiceType: selectedVoice,
+        speechRate: getSpeechRateFromSlider(speed),
+        speechVolume: volume / 100,
+        autoSpeak,
+      });
+
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      const preferences = getVoicePreferences(settings);
+
+      confirmedPreferencesRef.current = preferences;
+      setVolume(preferences.volume);
+      setSpeed(preferences.speed);
+      setSelectedVoice(preferences.selectedVoice);
+      setAutoSpeak(preferences.autoSpeak);
+      setShowAlert(true);
+      progressAnim.setValue(0);
+
+      Animated.timing(progressAnim, {
+        toValue: 1,
+        duration: 3000,
+        useNativeDriver: false,
+      }).start(({ finished }) => {
+        if (finished && isMountedRef.current) {
+          setShowAlert(false);
+          router.back();
+        }
+      });
+    } catch (error) {
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      const confirmedPreferences = confirmedPreferencesRef.current;
+
+      if (confirmedPreferences) {
+        setVolume(confirmedPreferences.volume);
+        setSpeed(confirmedPreferences.speed);
+        setSelectedVoice(confirmedPreferences.selectedVoice);
+        setAutoSpeak(confirmedPreferences.autoSpeak);
+      }
+
+      Alert.alert(
+        'Não foi possível salvar',
+        getFriendlyErrorMessage(error, 'Tente novamente em instantes.')
+      );
+    } finally {
+      saveInFlightRef.current = false;
+
+      if (isMountedRef.current) {
+        setIsSaving(false);
+      }
+    }
   }
 
   function toggleDropdown() {
+    if (loadStatus !== 'ready' || isSaving) {
+      return;
+    }
+
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setIsDropdownOpen(!isDropdownOpen);
   }
@@ -152,7 +240,6 @@ export default function VoiceSettingsScreen() {
   function selectVoice(voice: string) {
     setSelectedVoice(voice);
     toggleDropdown();
-    void persistVoiceSettings({ voiceType: voice }, true);
   }
 
   const progressWidth = progressAnim.interpolate({
@@ -196,9 +283,7 @@ export default function VoiceSettingsScreen() {
                   step={25}
                   value={volume}
                   onValueChange={setVolume}
-                  onSlidingComplete={(value) => {
-                    void persistVoiceSettings({ speechVolume: value / 100 }, true);
-                  }}
+                  disabled={loadStatus !== 'ready' || isSaving}
                   minimumTrackTintColor={BLUE}
                   maximumTrackTintColor={BORDER}
                   thumbTintColor={BRANCO}
@@ -228,9 +313,7 @@ export default function VoiceSettingsScreen() {
                   step={25}
                   value={speed}
                   onValueChange={setSpeed}
-                  onSlidingComplete={(value) => {
-                    void persistVoiceSettings({ speechRate: getSpeechRateFromSlider(value) }, true);
-                  }}
+                  disabled={loadStatus !== 'ready' || isSaving}
                   minimumTrackTintColor={BLUE}
                   maximumTrackTintColor={BORDER}
                   thumbTintColor={BRANCO}
@@ -256,6 +339,7 @@ export default function VoiceSettingsScreen() {
                 style={styles.dropdownHeader} 
                 activeOpacity={0.7} 
                 onPress={toggleDropdown}
+                disabled={loadStatus !== 'ready' || isSaving}
               >
                 <Text style={[styles.dropdownHeaderText, isDropdownOpen && styles.dropdownHeaderTextSelected]}>
                   {selectedVoice}
@@ -275,6 +359,7 @@ export default function VoiceSettingsScreen() {
                       style={styles.voiceItem}
                       activeOpacity={0.7}
                       onPress={() => selectVoice(voice)}
+                      disabled={isSaving}
                     >
                       <Text style={[
                         styles.voiceItemText,
@@ -316,11 +401,27 @@ export default function VoiceSettingsScreen() {
             </View>
           ) : (
             <TouchableOpacity
-              style={styles.mainButton}
+              style={[
+                styles.mainButton,
+                (loadStatus === 'loading' || isSaving) && styles.mainButtonDisabled,
+              ]}
               activeOpacity={0.85}
-              onPress={handleSavePreferences}
+              onPress={
+                loadStatus === 'error'
+                  ? () => setLoadAttempt((attempt) => attempt + 1)
+                  : handleSavePreferences
+              }
+              disabled={loadStatus === 'loading' || isSaving}
             >
-              <Text style={styles.mainButtonText}>Salvar preferências</Text>
+              <Text style={styles.mainButtonText}>
+                {loadStatus === 'loading'
+                  ? 'Carregando...'
+                  : loadStatus === 'error'
+                    ? 'Tentar carregar novamente'
+                    : isSaving
+                      ? 'Salvando...'
+                      : 'Salvar preferências'}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -475,6 +576,9 @@ const styles = StyleSheet.create({
     backgroundColor: BLUE,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  mainButtonDisabled: {
+    opacity: 0.65,
   },
   mainButtonText: {
     color: BRANCO,
