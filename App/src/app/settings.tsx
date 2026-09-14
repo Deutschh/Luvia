@@ -291,7 +291,9 @@ export default function SettingsScreen() {
               <View style={styles.optionRow}>
                 <View style={styles.optionTextContainer}>
                   <Text style={styles.optionTitle}>Modo Escuro</Text>
-                  <Text style={styles.optionSubtitle}>Aparência do aplicativo no modo claro.</Text>
+                  <Text style={styles.optionSubtitle}>
+                    Preferência salva. Aplicação visual completa em etapa futura.
+                  </Text>
                   {getSaveStatusLabel(darkModeSaveStatus) && (
                     <Text
                       style={[
