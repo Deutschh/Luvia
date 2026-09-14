@@ -117,6 +117,61 @@ Se o Android recusar a atualização por incompatibilidade de assinatura, será 
 - Testar o Google Login separadamente e validar a configuração do certificado Android caso ele falhe.
 - Repetir um teste fora da rede local usada no desenvolvimento para confirmar que o APK não utiliza endereço local.
 
+## Development build Android
+
+O perfil `development` do EAS gera um APK instalável com o `expo-dev-client`. Diferentemente do APK `preview`, esse aplicativo depende do Metro durante o desenvolvimento e deve ser aberto pelo ícone do Luvia, não pelo Expo Go.
+
+### Variáveis de ambiente
+
+Antes do build, configure e confirme no ambiente EAS `development`, sem registrar valores no repositório:
+
+| Variável | Finalidade |
+| --- | --- |
+| `EXPO_PUBLIC_API_URL` | URL HTTPS pública da API online no Render |
+| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Client ID web usado pelo Google Login nativo |
+
+O perfil `development` seleciona explicitamente esse ambiente do EAS. Entretanto, quando o JavaScript é carregado pelo Metro, as variáveis vêm do ambiente local. Por isso, confirme também que o arquivo ignorado `App/.env` contém os mesmos nomes e que `EXPO_PUBLIC_API_URL` aponta para a API online. Variáveis com prefixo `EXPO_PUBLIC_` fazem parte do bundle cliente e não devem conter segredos.
+
+### Gerar e instalar
+
+A partir da raiz do repositório, execute:
+
+```powershell
+cd App
+npx --yes eas-cli@20.1.0 whoami
+npx --yes eas-cli@20.1.0 project:info
+npx --yes eas-cli@20.1.0 env:list --environment development
+npx --yes eas-cli@20.1.0 build --platform android --profile development --clear-cache
+```
+
+Ao concluir, instale o APK pelo link ou QR code fornecido pelo EAS. Como alternativa:
+
+```powershell
+adb install -r caminho\Luvia-development.apk
+```
+
+O development build e o APK preview usam o mesmo package Android (`com.joaopedro.luvia`). Portanto, a nova instalação substitui a anterior. Se houver incompatibilidade de assinatura, será necessário desinstalar o aplicativo existente antes da instalação; isso apaga a sessão e os dados locais.
+
+### Executar com Metro
+
+Com o development build instalado, execute dentro de `App/`:
+
+```powershell
+npx expo start --dev-client --clear
+```
+
+Abra o Luvia instalado e conecte-o ao servidor exibido pelo Metro. O computador e o Android precisam conseguir se comunicar pela rede local; se a LAN ou o firewall impedir a conexão, use tunnel como alternativa.
+
+Alterações somente em JavaScript ou TypeScript usam Fast Refresh e não exigem outro APK. Sempre gere um novo development build após adicionar, remover ou reconfigurar dependências nativas, plugins do Expo ou futuros módulos BLE.
+
+### Checklist do development build
+
+- Confirmar que o Luvia abre pelo próprio ícone e não pelo Expo Go.
+- Confirmar que o bundle é carregado pelo Metro e que o Fast Refresh funciona.
+- Testar cadastro, login, sessão e chamadas à API online.
+- Testar o Google Login; se houver falha de credencial, validar o package e o SHA-1 usados pelo EAS.
+- Encerrar o Metro e confirmar que a indisponibilidade do servidor de desenvolvimento é informada, comportamento esperado desse tipo de build.
+
 ## Rodar a API
 
 ```powershell
