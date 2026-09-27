@@ -324,10 +324,6 @@ export default function AddWordScreen() {
               </View>
           </View>
 
-          <TouchableOpacity style={styles.recordButton} activeOpacity={0.8} onPress={() => router.push('/signal')}>
-            <Text style={styles.recordButtonText}>Reproduzir sinal para gravação</Text>
-          </TouchableOpacity>
-
         </ScrollView>
 
         <View style={styles.footer}>
@@ -669,24 +665,6 @@ const styles = StyleSheet.create({
     color: TEXT,
     fontSize: 14,
     fontFamily: 'Poppins',
-  },
-  recordButton: {
-    backgroundColor: BLUE,
-    alignSelf: 'flex-start',
-    paddingVertical: 14,
-    paddingHorizontal: 28,
-    borderRadius: 28,
-    marginTop: 8,
-    shadowColor: BLUE,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  recordButtonText: {
-    color: BRANCO,
-    fontSize: 14,
-    fontFamily: 'MazzardH-Medium',
   },
   footer: {
     paddingHorizontal: 34,

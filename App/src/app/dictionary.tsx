@@ -1,529 +1,208 @@
-import { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Platform,
-  ScrollView,
-  Image,
-} from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { GlassView, GlassContainer } from 'expo-glass-effect';
-import { LinearGradient } from 'expo-linear-gradient';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
+import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppBottomNavigation, useBottomNavigationContentInset } from '../components/AppBottomNavigation';
-import { AppGlassCard } from '../components/AppGlassCard';
-import { useIsFocused } from '@react-navigation/native';
-import {
-  type DictionaryCategory,
-  getDictionaryCategories,
-  getDictionarySigns,
-  getFavoriteSigns,
-} from '../services/dictionaryService';
+import { DictionarySignCard } from '../components/DictionarySignCard';
+import { type DictionaryCategory, type DictionarySign, getDictionaryCategories, getDictionarySigns, getFavoriteSigns } from '../services/dictionaryService';
 
 const BLUE = '#0A6DFF';
-const TEXT = '#111827';
-const MUTED = '#9CA3AF';
-const BRANCO = '#FFFFFF';
-
-const ESSENCIAIS = require('../../assets/images/Luvia/home/sociais.png');
-const FAVORITOS = require('../../assets/images/Luvia/home/favorito.png');
-const BEMESTAR = require('../../assets/images/Luvia/home/bem-estar.png');
-const INICIO = require('../../assets/images/Luvia/home/inicio.png');
-const DICIONARIO = require('../../assets/images/Luvia/home/dicionario.png');
-const LUVAS = require('../../assets/images/Luvia/home/luvas.png');
-const CONFIGURACOES = require('../../assets/images/Luvia/home/configuracoes.png');
-const PESQUISA = require('../../assets/images/Luvia/dicionario/pesquisa.png');
-const SETA = require('../../assets/images/Luvia/dicionario/seta.png');
-
-function mapIconByKey(iconKey?: string | null, slug?: string) {
-  const normalizedKey = (iconKey || slug || '').toLowerCase();
-
-  if (normalizedKey.includes('favorito')) {
-    return FAVORITOS;
-  }
-
-  if (normalizedKey.includes('sociais') || normalizedKey.includes('saudacoes')) {
-    return ESSENCIAIS;
-  }
-
-  if (normalizedKey.includes('bem') || normalizedKey.includes('estar')) {
-    return BEMESTAR;
-  }
-
-  return ESSENCIAIS;
-}
+const TEXT = '#152341';
+const MUTED = '#64748B';
+const WHITE = '#FFFFFF';
+const PAGE = '#F8FAFF';
 
 function getSingleParam(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : value;
 }
 
 export default function DictionaryScreen() {
-  const bottomNavigationContentInset = useBottomNavigationContentInset();
+  const bottomInset = useBottomNavigationContentInset();
   const params = useLocalSearchParams<{ filter?: string | string[]; category?: string | string[] }>();
   const isFocused = useIsFocused();
   const [activeCategory, setActiveCategory] = useState('all');
   const [categories, setCategories] = useState<DictionaryCategory[]>([]);
-  const [items, setItems] = useState<
-    { id: string; title: string; subtitle: string; icon: number }[]
-  >([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [signs, setSigns] = useState<DictionarySign[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
+  const [loadingSigns, setLoadingSigns] = useState(true);
+  const [signsError, setSignsError] = useState<string | null>(null);
+  const [categoryRetry, setCategoryRetry] = useState(0);
+  const [signRetry, setSignRetry] = useState(0);
 
   useEffect(() => {
-    const filterParam = getSingleParam(params.filter);
-    const categoryParam = getSingleParam(params.category);
-
-    if (filterParam === 'favorites') {
-      setActiveCategory('favoritos');
-      return;
-    }
-
-    if (categoryParam) {
-      setActiveCategory(categoryParam);
-      return;
-    }
-
-    setActiveCategory('all');
+    const filter = getSingleParam(params.filter);
+    const category = getSingleParam(params.category);
+    setActiveCategory(filter === 'favorites' ? 'favoritos' : category || 'all');
   }, [params.category, params.filter]);
 
   useEffect(() => {
-    let isMounted = true;
+    if (!isFocused) return;
+    let active = true;
+    setLoadingCategories(true);
+    setCategoriesError(null);
 
-    async function loadDictionary() {
-      if (!isFocused) {
-        return;
-      }
+    void getDictionaryCategories()
+      .then((result) => {
+        if (active) setCategories(result);
+      })
+      .catch((error: unknown) => {
+        if (active) setCategoriesError(error instanceof Error ? error.message : 'Não foi possível carregar os filtros.');
+      })
+      .finally(() => {
+        if (active) setLoadingCategories(false);
+      });
 
-      setLoading(true);
-      setError(null);
+    return () => { active = false; };
+  }, [categoryRetry, isFocused]);
 
-      try {
-        const [categoriesData, signsData] = await Promise.all([
-          getDictionaryCategories(),
-          activeCategory === 'favoritos'
-            ? getFavoriteSigns()
-            : getDictionarySigns(activeCategory === 'all' ? undefined : activeCategory),
-        ]);
+  const loadSigns = useCallback(() => (
+    activeCategory === 'favoritos'
+      ? getFavoriteSigns()
+      : getDictionarySigns(activeCategory === 'all' ? undefined : activeCategory)
+  ), [activeCategory]);
 
-        if (!isMounted) {
-          return;
+  useEffect(() => {
+    if (!isFocused) return;
+    let active = true;
+    setLoadingSigns(true);
+    setSignsError(null);
+
+    void loadSigns()
+      .then((result) => {
+        if (active) setSigns(result);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setSigns([]);
+          setSignsError(error instanceof Error ? error.message : 'Não foi possível carregar o dicionário.');
         }
+      })
+      .finally(() => {
+        if (active) setLoadingSigns(false);
+      });
 
-        setCategories(categoriesData);
-        setItems(
-          signsData.map((item) => ({
-            id: item.id,
-            title: item.title,
-            subtitle: item.description || item.example || item.category.name,
-            icon: mapIconByKey(item.category.iconKey, item.category.slug),
-          }))
-        );
-      } catch (loadError) {
-        if (!isMounted) {
-          return;
-        }
+    return () => { active = false; };
+  }, [isFocused, loadSigns, signRetry]);
 
-        setError(loadError instanceof Error ? loadError.message : 'Erro ao carregar dicionário.');
-        setItems([]);
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void loadDictionary();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [activeCategory, isFocused]);
-
-  const categoryOptions = [
-    { id: 'all', name: 'Todas', slug: 'all' },
-    ...categories,
-  ];
+  const categoryOptions = [{ id: 'all', name: 'Todas', slug: 'all' }, ...categories];
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
       <View style={styles.container}>
-
         <View style={styles.topArea}>
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Dicionário</Text>
+            <Text style={styles.headerTitle} accessibilityRole="header">Dicionário</Text>
             <View style={styles.headerActions}>
-              <TouchableOpacity style={styles.addButton} activeOpacity={0.8} onPress={() => router.push('/add')}>
-                <Feather name="plus" size={24} color={BRANCO} />
+              <TouchableOpacity style={styles.addButton} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Adicionar sinal" onPress={() => router.push('/add')}>
+                <Feather name="plus" size={24} color={WHITE} />
               </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={styles.searchButtonWrapper}
-                activeOpacity={0.75}
-                onPress={() => router.push('/search')}
-              >
-                <GlassContainer style={StyleSheet.absoluteFill}>
-                  <GlassView style={styles.glassEffect} />
-                </GlassContainer>
-
-                <Image
-                  source={PESQUISA}
-                  style={styles.searchIcon}
-                  resizeMode="contain"
-                />
+              <TouchableOpacity style={styles.searchButton} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Buscar sinais" onPress={() => router.push('/search')}>
+                <Feather name="search" size={22} color={MUTED} />
               </TouchableOpacity>
             </View>
           </View>
 
-          <View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={{ overflow: 'visible' }}
-              contentContainerStyle={styles.categoriesContainer}
-            >
-              {categoryOptions.map((category, index) => {
-                const isActive = activeCategory === category.slug;
+          {loadingCategories && categories.length === 0 ? (
+            <View style={styles.filtersLoading}>
+              <ActivityIndicator color={BLUE} size="small" />
+              <Text style={styles.helperText}>Carregando filtros…</Text>
+            </View>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesContainer}>
+              {categoryOptions.map((category) => {
+                const selected = activeCategory === category.slug;
                 return (
-                  <TouchableOpacity
-                    key={category.id || index}
-                    activeOpacity={0.85}
-                    onPress={() => setActiveCategory(category.slug)}
-                    style={isActive ? styles.pillActiveWrapper : styles.pillInactiveWrapper}
-                  >
-                    {isActive && <View style={styles.inactiveFill} />}
-
-                    <Text style={isActive ? styles.categoryTextActive : styles.categoryTextInactive}>
-                      {category.name}
-                    </Text>
+                  <TouchableOpacity key={category.id} style={[styles.pill, selected && styles.pillActive]} accessibilityRole="button" accessibilityState={{ selected }} activeOpacity={0.82} onPress={() => setActiveCategory(category.slug)}>
+                    <Text style={[styles.pillText, selected && styles.pillTextActive]}>{category.name}</Text>
                   </TouchableOpacity>
                 );
               })}
             </ScrollView>
-          </View>
+          )}
+
+          {categoriesError ? (
+            <View style={styles.filterError}>
+              <Text style={styles.filterErrorText} numberOfLines={2}>{categoriesError}</Text>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setCategoryRetry((value) => value + 1)}>
+                <Text style={styles.retryLink}>Tentar novamente</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
 
-        <ScrollView
-          style={styles.list}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.listContainer, { paddingBottom: bottomNavigationContentInset }]}
-        >
-          {loading ? (
-            <Text style={styles.cardSubtitle}>Carregando...</Text>
-          ) : error ? (
-            <Text style={styles.cardSubtitle}>{error}</Text>
-          ) : items.length === 0 ? (
-            <Text style={styles.cardSubtitle}>Nenhum sinal encontrado.</Text>
-          ) : (
-            items.map((item) => (
-              <AppGlassCard key={item.id} style={styles.card} borderRadius={40}>
-                <TouchableOpacity style={styles.cardContent} activeOpacity={0.7}>
-
-                <View style={styles.cardIconWrapper}>
-                  <GlassContainer style={styles.liquidContainerShapeShortcut}>
-                    <GlassView style={styles.liquidBaseBlur} />
-                  </GlassContainer>
-
-                  <LinearGradient
-                    colors={[
-                      'rgba(255, 255, 255, 0.75)', 
-                      'rgba(0, 145, 255, 0.95)',   
-                      '#0091FF',                   
-                      'rgba(0, 145, 255, 0.35)'  
-                    ]}
-                    locations={[0, 0.25, 0.65, 1]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.liquidLightOverlayShortcut}
-                  />
-
-                  <View style={styles.liquidReflectionLipShortcut} />
-
-                  <Image source={item.icon} style={styles.cardIconImage} resizeMode="contain" />
-                </View>
-                <View style={styles.cardTextContainer}>
-                  <Text style={styles.cardTitle}>{item.title}</Text>
-                  <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
-                </View>
-                <Image source={SETA} style={styles.arrowIcon} resizeMode="contain" />
-                </TouchableOpacity>
-              </AppGlassCard>
-            ))
-          )}
+        <ScrollView style={styles.list} showsVerticalScrollIndicator={false} contentContainerStyle={[styles.listContent, { paddingBottom: bottomInset }]}>
+          {loadingSigns ? (
+            <StatePanel icon="book-open" title="Carregando sinais…" description="Aguarde enquanto atualizamos o dicionário." loading />
+          ) : signsError ? (
+            <StatePanel icon="wifi-off" title="Não foi possível carregar" description={signsError} actionLabel="Tentar novamente" onAction={() => setSignRetry((value) => value + 1)} />
+          ) : signs.length === 0 ? (
+            <StatePanel
+              icon={activeCategory === 'favoritos' ? 'star' : 'inbox'}
+              title={activeCategory === 'favoritos' ? 'Nenhum favorito ainda' : 'Nenhum sinal encontrado'}
+              description={activeCategory === 'favoritos' ? 'Abra um sinal e marque-o como favorito para encontrá-lo aqui.' : 'Ainda não há sinais disponíveis neste filtro.'}
+            />
+          ) : signs.map((sign) => (
+            <DictionarySignCard key={sign.id} sign={sign} onPress={() => router.push({ pathname: '/signal', params: { id: sign.id } })} />
+          ))}
         </ScrollView>
-
       </View>
-
       <AppBottomNavigation activeRoute="dictionary" />
     </SafeAreaView>
   );
 }
 
-function NavItem({ source, label, active = false, onPress }: { source: any; label: string; active?: boolean; onPress?: () => void }) {
+function StatePanel({ icon, title, description, loading = false, actionLabel, onAction }: {
+  icon: keyof typeof Feather.glyphMap;
+  title: string;
+  description: string;
+  loading?: boolean;
+  actionLabel?: string;
+  onAction?: () => void;
+}) {
   return (
-    <TouchableOpacity style={styles.navItem} activeOpacity={0.7} onPress={onPress}>
-      <Image
-        source={source}
-        style={[styles.navIcon, active && styles.navIconActive]}
-        resizeMode="contain"
-      />
-      <Text style={[styles.navLabel, active && styles.navLabelActive]}>{label}</Text>
-    </TouchableOpacity>
+    <View style={styles.statePanel}>
+      {loading ? <ActivityIndicator color={BLUE} size="large" /> : <Feather name={icon} size={38} color={BLUE} />}
+      <Text style={styles.stateTitle}>{title}</Text>
+      <Text style={styles.stateDescription}>{description}</Text>
+      {actionLabel && onAction ? (
+        <TouchableOpacity style={styles.retryButton} accessibilityRole="button" onPress={onAction}>
+          <Feather name="refresh-cw" size={16} color={WHITE} />
+          <Text style={styles.retryButtonText}>{actionLabel}</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: BRANCO,
-  },
-  container: {
-    flex: 1,
-  },
-  topArea: {
-    backgroundColor: BRANCO,
-    zIndex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    marginTop: 20,
-    marginBottom: 20,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontFamily: 'PoppinsM',
-    color: TEXT,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: BLUE,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: BLUE,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  searchButtonWrapper: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-    borderRadius: 22,
-  },
-  glassEffect: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-  },
-  searchIcon: {
-    width: 20,
-    height: 20,
-    tintColor: MUTED,
-  },
-  categoriesContainer: {
-    paddingHorizontal: 24,
-    paddingBottom: 4,
-    gap: 12,
-  },
-  pillActiveWrapper: {
-    width: 105,
-    height: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  pillInactiveWrapper: {
-    width: 105,
-    height: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 24,
-    backgroundColor: '#F5F7FA',
-    borderWidth: 1,
-    borderColor: '#FFFFFF',
-  },
-  inactiveFill: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 24,
-    backgroundColor: BLUE, 
-    borderWidth: 0.5,
-    borderColor: 'rgba(255, 255, 255, 0.75)', 
-  },
-  categoryTextActive: {
-    fontSize: 13,
-    fontFamily: 'Mazzard',
-    color: BRANCO,
-    zIndex: 2, 
-  },
-  categoryTextInactive: {
-    fontSize: 13,
-    fontFamily: 'Mazzard',
-    color: MUTED,
-    zIndex: 2,
-  },
-  listContainer: {
-    paddingHorizontal: 24,
-    paddingBottom: 120,
-    paddingTop: 20,
-    gap: 16,
-  },
-  list: {
-    flex: 1,
-    overflow: 'hidden',
-  },
-  card: {
-    borderRadius: 40,
-  },
-  cardContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 40,
-    padding: 16,
-  },
-
-  liquidContainerShapeWhite40: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 40,
-    overflow: 'hidden',
-  },
-  liquidBaseBlurWhite: {
-    flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)', 
-  },
-  liquidLightOverlayWhite40: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 40,
-  },
-  liquidReflectionLipWhite40: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 40,
-    borderTopWidth: 1.5,
-    borderLeftWidth: 1.5,
-    borderBottomWidth: 0.5,
-    borderRightWidth: 0.5,
-    borderTopColor: 'rgba(255, 255, 255, 0.8)',
-    borderLeftColor: 'rgba(255, 255, 255, 0.5)',
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-    borderRightColor: 'rgba(255, 255, 255, 0.1)',
-  },
-
-  cardIconWrapper: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 40,
-    elevation: 8,
-  },
-  liquidContainerShapeShortcut: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 26,
-    overflow: 'hidden',
-  },
-  liquidLightOverlayShortcut: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 26,
-  },
-  liquidReflectionLipShortcut: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 26,
-  },
-  liquidBaseBlur: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 145, 255, 0.35)', 
-  },
-  cardIconImage: {
-    width: '50%',
-    height: '50%',
-    position: 'absolute',
-    zIndex: 12,
-  },
-  cardTextContainer: {
-    flex: 1,
-    marginLeft: 16,
-    marginRight: 16,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontFamily: 'Poppins SemiBold',
-    color: TEXT,
-    marginBottom: 2,
-    letterSpacing: -0.5,
-  },
-  cardSubtitle: {
-    fontSize: 14,
-    fontFamily: 'Mazzard',
-    color: '#64748B',
-  },
-  arrowIcon: {
-    width: 14,
-    height: 14,
-    marginRight: 8,
-  },
-  bottomNavContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 90,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#8E9CAE',
-    shadowOffset: { width: 0, height: -10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 10,
-  },
-  bottomNavInner: {
-    width: '100%',
-    maxWidth: 340,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingTop: 8,
-    paddingBottom: Platform.OS === 'ios' ? 16 : 8,
-  },
-  navItem: {
-    alignItems: 'center',
-    gap: 6,
-    minWidth: 70,
-  },
-  navIcon: {
-    width: 24,
-    height: 24,
-    tintColor: MUTED,
-  },
-  navIconActive: {
-    tintColor: BLUE,
-  },
-  navLabel: {
-    fontSize: 10,
-    color: MUTED,
-    fontFamily: 'Poppins',
-  },
-  navLabelActive: {
-    color: BLUE,
-    fontFamily: 'Poppins SemiBold',
-  },
+  safeArea: { flex: 1, backgroundColor: PAGE },
+  container: { flex: 1 },
+  topArea: { backgroundColor: PAGE, zIndex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: 16, paddingBottom: 18 },
+  headerTitle: { fontSize: 24, fontFamily: 'PoppinsM', color: TEXT },
+  headerActions: { flexDirection: 'row', gap: 12 },
+  addButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: BLUE, alignItems: 'center', justifyContent: 'center' },
+  searchButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#E8EEF8', borderWidth: 1, borderColor: WHITE, alignItems: 'center', justifyContent: 'center' },
+  categoriesContainer: { paddingHorizontal: 24, paddingBottom: 10, gap: 10 },
+  pill: { minWidth: 104, minHeight: 38, paddingHorizontal: 18, borderRadius: 20, backgroundColor: '#F1F4F9', borderWidth: 1, borderColor: WHITE, alignItems: 'center', justifyContent: 'center' },
+  pillActive: { backgroundColor: BLUE, borderColor: BLUE },
+  pillText: { fontSize: 12, fontFamily: 'PoppinsM', color: MUTED },
+  pillTextActive: { color: WHITE },
+  filtersLoading: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 24, paddingBottom: 10 },
+  helperText: { color: MUTED, fontFamily: 'Poppins', fontSize: 12 },
+  filterError: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginHorizontal: 24, marginBottom: 10, padding: 12, borderRadius: 16, backgroundColor: '#FFF1F3' },
+  filterErrorText: { flex: 1, color: '#9B354A', fontFamily: 'Poppins', fontSize: 11 },
+  retryLink: { color: BLUE, fontFamily: 'PoppinsM', fontSize: 11 },
+  list: { flex: 1, overflow: 'hidden' },
+  listContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 18, gap: 14 },
+  statePanel: { flex: 1, minHeight: 320, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, gap: 10 },
+  stateTitle: { color: TEXT, fontFamily: 'PoppinsM', fontSize: 18, textAlign: 'center' },
+  stateDescription: { color: MUTED, fontFamily: 'Poppins', fontSize: 13, lineHeight: 20, textAlign: 'center' },
+  retryButton: { minHeight: 44, marginTop: 8, paddingHorizontal: 20, borderRadius: 22, backgroundColor: BLUE, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  retryButtonText: { color: WHITE, fontFamily: 'PoppinsM', fontSize: 13 },
 });

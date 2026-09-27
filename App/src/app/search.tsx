@@ -1,563 +1,153 @@
 import { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Platform,
-  ScrollView,
-  Image,
-  TextInput,
-} from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Feather } from '@expo/vector-icons';
-import { GlassView, GlassContainer } from 'expo-glass-effect';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppBottomNavigation, useBottomNavigationContentInset } from '../components/AppBottomNavigation';
-import { searchDictionarySigns } from '../services/dictionaryService';
+import { DictionarySignCard } from '../components/DictionarySignCard';
+import { type DictionarySign, searchDictionarySigns } from '../services/dictionaryService';
 
 const BLUE = '#0A6DFF';
-const TEXT = '#111827';
-const MUTED = '#9CA3AF';
-const BRANCO = '#FFFFFF';
-
-const SOCIAIS = require('../../assets/images/Luvia/home/sociais.png');
-const ESSENCIAIS = require('../../assets/images/Luvia/home/essenciais.png');
-const FAVORITOS = require('../../assets/images/Luvia/home/favorito.png');
-const BEMESTAR = require('../../assets/images/Luvia/home/bem-estar.png');
-const INICIO = require('../../assets/images/Luvia/home/inicio.png');
-const DICIONARIO = require('../../assets/images/Luvia/home/dicionario.png');
-const LUVAS = require('../../assets/images/Luvia/home/luvas.png');
-const CONFIGURACOES = require('../../assets/images/Luvia/home/configuracoes.png');
-const SETA = require('../../assets/images/Luvia/dicionario/seta.png');
-const PESQUISA = require('../../assets/images/Luvia/dicionario/pesquisa.png');
-
-function mapIconByKey(iconKey?: string | null, slug?: string) {
-  const normalizedKey = (iconKey || slug || '').toLowerCase();
-
-  if (normalizedKey.includes('favorito')) {
-    return FAVORITOS;
-  }
-
-  if (normalizedKey.includes('sociais') || normalizedKey.includes('saudacoes')) {
-    return SOCIAIS;
-  }
-
-  if (normalizedKey.includes('bem') || normalizedKey.includes('estar')) {
-    return BEMESTAR;
-  }
-
-  return ESSENCIAIS;
-}
+const TEXT = '#152341';
+const MUTED = '#64748B';
+const WHITE = '#FFFFFF';
+const PAGE = '#F8FAFF';
 
 export default function SearchScreen() {
-  const bottomNavigationContentInset = useBottomNavigationContentInset();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filteredItems, setFilteredItems] = useState<
-    { id: string; title: string; subtitle: string; icon: number }[]
-  >([]);
+  const bottomInset = useBottomNavigationContentInset();
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<DictionarySign[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
+  const normalizedQuery = query.trim();
 
   useEffect(() => {
-    const query = searchQuery.trim();
-
-    if (!query) {
-      setFilteredItems([]);
+    if (!normalizedQuery) {
+      setResults([]);
       setLoading(false);
       setError(null);
       return;
     }
 
-    let cancelled = false;
+    let active = true;
+    setResults([]);
+    setError(null);
+    setLoading(true);
 
     const timeout = setTimeout(() => {
-      void (async () => {
-        setLoading(true);
-        setError(null);
-
-        try {
-          const results = await searchDictionarySigns(query);
-
-          if (cancelled) {
-            return;
+      void searchDictionarySigns(normalizedQuery)
+        .then((response) => {
+          if (active) setResults(response);
+        })
+        .catch((searchError: unknown) => {
+          if (active) {
+            setResults([]);
+            setError(searchError instanceof Error ? searchError.message : 'Não foi possível buscar sinais.');
           }
-
-          setFilteredItems(
-            results.map((item) => ({
-              id: item.id,
-              title: item.title,
-              subtitle: item.description || item.example || item.category.name,
-              icon: mapIconByKey(item.category.iconKey, item.category.slug),
-            }))
-          );
-        } catch (searchError) {
-          if (cancelled) {
-            return;
-          }
-
-          setError(searchError instanceof Error ? searchError.message : 'Erro ao buscar sinais.');
-          setFilteredItems([]);
-        } finally {
-          if (!cancelled) {
-            setLoading(false);
-          }
-        }
-      })();
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
     }, 300);
 
     return () => {
-      cancelled = true;
+      active = false;
       clearTimeout(timeout);
     };
-  }, [searchQuery]);
+  }, [normalizedQuery, retry]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
       <View style={styles.container}>
-        
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButtonWrapper}
-            activeOpacity={0.75}
-            onPress={() => router.back()}
-          >
-            <GlassContainer style={StyleSheet.absoluteFill}>
-              <GlassView style={styles.glassEffect} />
-            </GlassContainer>
-            <Feather name="chevron-left" size={28} color={BLUE} />
+          <TouchableOpacity style={styles.backButton} accessibilityRole="button" accessibilityLabel="Voltar" onPress={() => router.back()}>
+            <Feather name="chevron-left" size={26} color={BLUE} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Buscar</Text>
-          <View style={styles.placeholder} />
+          <Text style={styles.headerTitle} accessibilityRole="header">Buscar</Text>
+          <View style={styles.headerSpacer} />
         </View>
 
-        <View style={styles.searchBarWrapper}>
-          <GlassContainer style={styles.liquidContainerShapeSearch}>
-            <GlassView style={styles.liquidBaseBlurWhite} />
-          </GlassContainer>
-          <LinearGradient
-            colors={['rgba(255, 255, 255, 0.6)', 'rgba(255, 255, 255, 0.05)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.liquidLightOverlaySearch}
-          />
-          <View style={styles.liquidReflectionLipSearch} />
-
-          <Image
-            source={PESQUISA}
-            style={styles.searchIcon}
-            resizeMode="contain"
-          />
+        <View style={styles.searchBar}>
+          <Feather name="search" size={20} color={MUTED} />
           <TextInput
             style={styles.searchInput}
             placeholder="Sinais, palavras e mais..."
             placeholderTextColor={MUTED}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoFocus={true}
+            value={query}
+            onChangeText={setQuery}
+            autoFocus
             autoCorrect={false}
+            returnKeyType="search"
           />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton} activeOpacity={0.7}>
+          {query.length > 0 ? (
+            <TouchableOpacity style={styles.clearButton} accessibilityRole="button" accessibilityLabel="Limpar busca" onPress={() => setQuery('')}>
               <Feather name="x" size={18} color={MUTED} />
             </TouchableOpacity>
-          )}
+          ) : null}
         </View>
 
-        <View style={styles.contentContainer}>
-          {searchQuery === '' ? (
-            <View style={styles.emptyStateContainer}>
-              <Image
-                source={PESQUISA}
-                style={styles.emptyStateIcon}
-                resizeMode="contain"
-              />
-              <Text style={styles.emptyStateTitle}>Nenhuma busca recente</Text>
-              <Text style={styles.emptyStateSubtitle}>Suas buscas recentes aparecerão aqui.</Text>
-            </View>
-          ) : loading ? (
-            <View style={styles.emptyStateContainer}>
-              <Image
-                source={PESQUISA}
-                style={styles.emptyStateIcon}
-                resizeMode="contain"
-              />
-              <Text style={styles.emptyStateTitle}>Carregando...</Text>
-              <Text style={styles.emptyStateSubtitle}>Buscando sinais no dicionário.</Text>
-            </View>
-          ) : error ? (
-            <View style={styles.emptyStateContainer}>
-              <Image
-                source={PESQUISA}
-                style={styles.emptyStateIcon}
-                resizeMode="contain"
-              />
-              <Text style={styles.emptyStateTitle}>Não foi possível buscar.</Text>
-              <Text style={styles.emptyStateSubtitle}>{error}</Text>
-            </View>
-          ) : filteredItems.length === 0 ? (
-            <View style={styles.emptyStateContainer}>
-              <Image
-                source={PESQUISA}
-                style={styles.emptyStateIcon}
-                resizeMode="contain"
-              />
-              <Text style={styles.emptyStateTitle}>Nenhum resultado encontrado.</Text>
-              <Text style={styles.emptyStateSubtitle}>
-                {`Não foi encontrado nenhum resultado para a busca "${searchQuery}".`}
-              </Text>
-            </View>
-          ) : (
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={[styles.listContainer, { paddingBottom: bottomNavigationContentInset }]}
-              style={{ overflow: 'visible' }}
-            >
-              {filteredItems.map((item) => (
-                <TouchableOpacity key={item.id} style={styles.card} activeOpacity={0.7}>
-                  
-                  {/* LIQUID GLASS NO CARD */}
-                  <GlassContainer style={styles.liquidContainerShapeCard40}>
-                    <GlassView style={styles.liquidBaseBlurWhite} />
-                  </GlassContainer>
-                  <LinearGradient
-                    colors={['rgba(255, 255, 255, 0.6)', 'rgba(255, 255, 255, 0.05)']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.liquidLightOverlayCard40}
-                  />
-                  <View style={styles.liquidReflectionLipCard40} />
-
-                  <View style={styles.cardIconWrapper}>
-                    <GlassContainer style={styles.liquidContainerShapeShortcut}>
-                      <GlassView style={styles.liquidBaseBlur} />
-                    </GlassContainer>
-
-                    <LinearGradient
-                      colors={[
-                        'rgba(255, 255, 255, 0.75)', 
-                        'rgba(0, 145, 255, 0.95)',   
-                        '#0091FF',                   
-                        'rgba(0, 145, 255, 0.35)'  
-                      ]}
-                      locations={[0, 0.25, 0.65, 1]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.liquidLightOverlayShortcut}
-                    />
-
-                    <View style={styles.liquidReflectionLipShortcut} />
-
-                    <Image source={item.icon} style={styles.cardIconImage} resizeMode="contain" />
-                  </View>
-                  <View style={styles.cardTextContainer}>
-                    <Text style={styles.cardTitle}>{item.title}</Text>
-                    <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
-                  </View>
-                  <Image source={SETA} style={styles.arrowIcon} resizeMode="contain" />
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          )}
-        </View>
-
+        {!normalizedQuery ? (
+          <SearchState icon="search" title="Busque um sinal" description="Digite uma palavra para pesquisar por título, descrição ou exemplo." />
+        ) : loading ? (
+          <SearchState icon="search" title="Buscando sinais…" description={`Procurando resultados para “${normalizedQuery}”.`} loading />
+        ) : error ? (
+          <SearchState icon="wifi-off" title="Não foi possível buscar" description={error} actionLabel="Tentar novamente" onAction={() => setRetry((value) => value + 1)} />
+        ) : results.length === 0 ? (
+          <SearchState icon="inbox" title="Nenhum resultado encontrado" description={`Não encontramos sinais para “${normalizedQuery}”.`} />
+        ) : (
+          <ScrollView style={styles.list} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.listContent, { paddingBottom: bottomInset }]}>
+            {results.map((sign) => (
+              <DictionarySignCard key={sign.id} sign={sign} onPress={() => router.push({ pathname: '/signal', params: { id: sign.id } })} />
+            ))}
+          </ScrollView>
+        )}
       </View>
-
       <AppBottomNavigation activeRoute="dictionary" replaceNavigation />
     </SafeAreaView>
   );
 }
 
-function NavItem({ source, label, active = false, onPress }: { source: any; label: string; active?: boolean; onPress?: () => void }) {
+function SearchState({ icon, title, description, loading = false, actionLabel, onAction }: {
+  icon: keyof typeof Feather.glyphMap;
+  title: string;
+  description: string;
+  loading?: boolean;
+  actionLabel?: string;
+  onAction?: () => void;
+}) {
   return (
-    <TouchableOpacity style={styles.navItem} activeOpacity={0.7} onPress={onPress}>
-      <Image
-        source={source}
-        style={[styles.navIcon, active && styles.navIconActive]}
-        resizeMode="contain"
-      />
-      <Text style={[styles.navLabel, active && styles.navLabelActive]}>{label}</Text>
-    </TouchableOpacity>
+    <View style={styles.state}>
+      {loading ? <ActivityIndicator size="large" color={BLUE} /> : <Feather name={icon} size={40} color={BLUE} />}
+      <Text style={styles.stateTitle}>{title}</Text>
+      <Text style={styles.stateDescription}>{description}</Text>
+      {actionLabel && onAction ? (
+        <TouchableOpacity style={styles.retryButton} accessibilityRole="button" onPress={onAction}>
+          <Feather name="refresh-cw" size={16} color={WHITE} />
+          <Text style={styles.retryText}>{actionLabel}</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: BRANCO,
-  },
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: 60,
-    marginTop: 20,
-    paddingHorizontal: 24,
-  },
-  backButtonWrapper: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-    borderRadius: 22,
-  },
-  glassEffect: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontFamily: 'PoppinsM',
-    color: TEXT,
-  },
-  placeholder: {
-    width: 44,
-  },
-  
-  searchBarWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 28,
-    marginHorizontal: 24,
-    marginTop: 16,
-    height: 48,
-    paddingHorizontal: 20,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.05,
-    shadowRadius: 20,
-    elevation: 4,
-    zIndex: 10,
-  },
-  liquidContainerShapeSearch: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 28,
-    overflow: 'hidden',
-  },
-  liquidLightOverlaySearch: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 28,
-  },
-  liquidReflectionLipSearch: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 28,
-    borderTopWidth: 1.5,
-    borderLeftWidth: 1.5,
-    borderBottomWidth: 0.5,
-    borderRightWidth: 0.5,
-    borderTopColor: 'rgba(255, 255, 255, 0.8)',
-    borderLeftColor: 'rgba(255, 255, 255, 0.5)',
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-    borderRightColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  liquidBaseBlurWhite: {
-    flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-
-  searchIcon: {
-    width: 20,
-    height: 20,
-    marginRight: 12,
-    tintColor: MUTED,
-    zIndex: 10,
-  },
-  searchInput: {
-    flex: 1,
-    height: '100%',
-    fontSize: 15,
-    fontFamily: 'PoppinsM',
-    color: TEXT,
-    zIndex: 10,
-  },
-  clearButton: {
-    padding: 4,
-    zIndex: 10,
-  },
-  contentContainer: {
-    flex: 1,
-  },
-  emptyStateContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 40,
-    marginTop: -80,
-  },
-  emptyStateIcon: {
-    width: 50,
-    height: 50,
-    marginBottom: 24,
-    opacity: 0.8,
-  },
-  emptyStateTitle: {
-    fontSize: 20,
-    fontFamily: 'PoppinsM',
-    color: TEXT,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  emptyStateSubtitle: {
-    fontSize: 13,
-    fontFamily: 'Mazzard',
-    color: MUTED,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  listContainer: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 120,
-    gap: 16,
-  },
-
-  /* ESTILOS DO CARD LIQUID GLASS */
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 40,
-    padding: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 40,
-    elevation: 4,
-  },
-  liquidContainerShapeCard40: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 40,
-    overflow: 'hidden',
-  },
-  liquidLightOverlayCard40: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 40,
-  },
-  liquidReflectionLipCard40: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 40,
-    borderTopWidth: 1.5,
-    borderLeftWidth: 1.5,
-    borderBottomWidth: 0.5,
-    borderRightWidth: 0.5,
-    borderTopColor: 'rgba(255, 255, 255, 0.8)',
-    borderLeftColor: 'rgba(255, 255, 255, 0.5)',
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-    borderRightColor: 'rgba(255, 255, 255, 0.1)',
-  },
-
-  cardIconWrapper: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 40,
-    elevation: 8,
-  },
-  liquidContainerShapeShortcut: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 26,
-    overflow: 'hidden',
-  },
-  liquidLightOverlayShortcut: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 26,
-  },
-  liquidReflectionLipShortcut: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 26,
-  },
-  liquidBaseBlur: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 145, 255, 0.35)',
-  },
-  cardIconImage: {
-    width: '48%',
-    height: '48%',
-    position: 'absolute',
-    zIndex: 12,
-  },
-  cardTextContainer: {
-    flex: 1,
-    marginLeft: 16,
-    marginRight: 16,
-    zIndex: 10,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontFamily: 'Poppins SemiBold',
-    color: TEXT,
-    marginBottom: 2,
-    letterSpacing: -0.5,
-  },
-  cardSubtitle: {
-    fontSize: 14,
-    fontFamily: 'Mazzard',
-    color: MUTED,
-  },
-  arrowIcon: {
-    width: 16,
-    height: 16,
-    marginRight: 8,
-    zIndex: 10,
-  },
-  bottomNavContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 90,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#8E9CAE',
-    shadowOffset: { width: 0, height: -10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 10,
-    backgroundColor: BRANCO,
-    zIndex: 20,
-  },
-  bottomNavInner: {
-    width: '100%',
-    maxWidth: 340,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingTop: 8,
-    paddingBottom: Platform.OS === 'ios' ? 16 : 8,
-  },
-  navItem: {
-    alignItems: 'center',
-    gap: 6,
-    minWidth: 70,
-  },
-  navIcon: {
-    width: 24,
-    height: 24,
-    tintColor: MUTED,
-  },
-  navIconActive: {
-    tintColor: BLUE,
-  },
-  navLabel: {
-    fontSize: 10,
-    color: MUTED,
-    fontFamily: 'Poppins',
-  },
-  navLabelActive: {
-    color: BLUE,
-    fontFamily: 'Poppins SemiBold',
-  },
+  safeArea: { flex: 1, backgroundColor: PAGE },
+  container: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: 16, paddingBottom: 14 },
+  backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#E8EEF8', borderWidth: 1, borderColor: WHITE, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { flex: 1, textAlign: 'center', color: TEXT, fontFamily: 'PoppinsM', fontSize: 21 },
+  headerSpacer: { width: 44 },
+  searchBar: { minHeight: 52, marginHorizontal: 24, flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 18, paddingRight: 6, borderRadius: 26, borderWidth: 1, borderColor: WHITE, backgroundColor: '#F1F4F9' },
+  searchInput: { flex: 1, minWidth: 0, paddingVertical: 12, color: TEXT, fontFamily: 'Poppins', fontSize: 14 },
+  clearButton: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  list: { flex: 1, overflow: 'hidden' },
+  listContent: { paddingHorizontal: 24, paddingTop: 22, gap: 14 },
+  state: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 36, paddingBottom: 80, gap: 10 },
+  stateTitle: { color: TEXT, fontFamily: 'PoppinsM', fontSize: 19, textAlign: 'center' },
+  stateDescription: { color: MUTED, fontFamily: 'Poppins', fontSize: 13, lineHeight: 21, textAlign: 'center' },
+  retryButton: { minHeight: 44, marginTop: 8, paddingHorizontal: 20, borderRadius: 22, backgroundColor: BLUE, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  retryText: { color: WHITE, fontFamily: 'PoppinsM', fontSize: 13 },
 });
