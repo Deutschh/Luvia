@@ -8,31 +8,105 @@ import { AppGlassCard } from '../components/AppGlassCard';
 const BLUE = '#0A6DFF';
 const TEXT = '#111827';
 const MUTED = '#64748B';
-const BRANCO = '#FFFFFF';
+const BACKGROUND = '#F7F9FD';
+const BORDER = '#DDE6F3';
+const DISCONNECTED = '#EF4444';
+
+type TranslationVisualState =
+  | 'waitingGloves'
+  | 'ready'
+  | 'translating'
+  | 'result'
+  | 'stale'
+  | 'reconnecting'
+  | 'error';
+
+type TranslationPresentation = {
+  title: string;
+  description: string;
+};
+
+const TRANSLATION_PRESENTATIONS: Record<TranslationVisualState, TranslationPresentation> = {
+  waitingGloves: {
+    title: 'Faça um sinal para começar',
+    description: 'A tradução aparecerá aqui quando as duas luvas estiverem prontas.',
+  },
+  ready: {
+    title: 'Pronto para traduzir',
+    description: 'Faça um sinal para iniciar uma futura tradução.',
+  },
+  translating: {
+    title: 'Traduzindo sinais',
+    description: 'Aguardando um resultado do reconhecedor.',
+  },
+  result: {
+    title: 'Tradução disponível',
+    description: 'O resultado reconhecido será exibido abaixo.',
+  },
+  stale: {
+    title: 'Sinal interrompido',
+    description: 'A tradução será pausada enquanto faltarem dados das luvas.',
+  },
+  reconnecting: {
+    title: 'Reconectando luvas',
+    description: 'A tradução continuará indisponível durante a reconexão.',
+  },
+  error: {
+    title: 'Não foi possível traduzir',
+    description: 'Verifique o estado das luvas antes de tentar novamente.',
+  },
+};
+
+const CURRENT_STATE: TranslationVisualState = 'waitingGloves';
+
+const GLOVE_STATUS = [
+  { side: 'Esquerda', state: 'Desconectada' },
+  { side: 'Direita', state: 'Desconectada' },
+] as const;
 
 export default function TranslateScreen() {
   const bottomNavigationContentInset = useBottomNavigationContentInset();
+  const presentation = TRANSLATION_PRESENTATIONS[CURRENT_STATE];
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar style="dark" backgroundColor={BRANCO} />
+      <StatusBar style="dark" />
 
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Traduzir</Text>
+          <Text style={styles.headerSubtitle}>Transforme sinais em texto e voz</Text>
         </View>
 
         <ScrollView
+          style={styles.scroll}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomNavigationContentInset }]}
         >
           <AppGlassCard style={styles.statusCard}>
-            <View style={styles.statusIcon}>
-              <Feather name="bluetooth" size={20} color={BLUE} />
+            <View style={styles.statusHeading}>
+              <View style={styles.statusIcon}>
+                <Feather name="bluetooth" size={24} color={BLUE} />
+              </View>
+              <View style={styles.statusCopy}>
+                <Text style={styles.statusTitle}>Luvas aguardando conexão</Text>
+                <Text style={styles.statusSubtitle}>Conecte as luvas para iniciar a tradução.</Text>
+              </View>
             </View>
-            <View style={styles.statusTextContainer}>
-              <Text style={styles.statusTitle}>Luvas aguardando conexão</Text>
-              <Text style={styles.statusSubtitle}>Conecte as luvas para iniciar a tradução.</Text>
+
+            <View style={styles.gloveStatusGrid}>
+              {GLOVE_STATUS.map((glove) => (
+                <View key={glove.side} style={styles.gloveStatusItem}>
+                  <View style={styles.gloveStatusLabelRow}>
+                    <Feather name="circle" size={12} color={BLUE} />
+                    <Text style={styles.gloveSide}>{glove.side}</Text>
+                  </View>
+                  <View style={styles.disconnectedRow}>
+                    <View style={styles.disconnectedDot} />
+                    <Text style={styles.disconnectedText}>{glove.state}</Text>
+                  </View>
+                </View>
+              ))}
             </View>
           </AppGlassCard>
 
@@ -40,48 +114,63 @@ export default function TranslateScreen() {
             <View style={styles.signalIcon}>
               <Feather name="activity" size={34} color={BLUE} />
             </View>
-            <Text style={styles.translationTitle}>Faça um sinal para começar</Text>
-            <Text style={styles.translationDescription}>A tradução aparecerá aqui em texto e voz.</Text>
+            <Text style={styles.translationTitle}>{presentation.title}</Text>
+            <Text style={styles.translationDescription}>{presentation.description}</Text>
 
             <View style={styles.detectedPhrase}>
-              <Text style={styles.detectedLabel}>FRASE DETECTADA</Text>
-              <Text style={styles.detectedText}>Aguardando seus sinais...</Text>
+              <View style={styles.detectedHeading}>
+                <Feather name="message-square" size={16} color={BLUE} />
+                <Text style={styles.detectedLabel}>FRASE DETECTADA</Text>
+              </View>
+              <Text style={styles.detectedText}>Nenhuma frase detectada.</Text>
             </View>
 
             <View style={styles.confidenceRow}>
-              <Feather name="target" size={16} color={BLUE} />
-              <Text style={styles.confidenceText}>Precisão estimada: --%</Text>
+              <View style={styles.confidenceIcon}>
+                <Feather name="target" size={16} color={BLUE} />
+              </View>
+              <Text style={styles.confidenceText}>Precisão: —</Text>
             </View>
 
-            <View style={styles.translationActions}>
-              <TouchableOpacity style={styles.secondaryAction} activeOpacity={0.8}>
-                <Feather name="volume-2" size={20} color={BLUE} />
-                <Text style={styles.secondaryActionText}>Reproduzir</Text>
+            <View style={styles.primaryActionArea}>
+              <TouchableOpacity
+                style={styles.primaryActionDisabled}
+                disabled
+                accessibilityRole="button"
+                accessibilityLabel="Iniciar tradução"
+                accessibilityState={{ disabled: true }}
+                accessibilityHint="Disponível quando as duas luvas estiverem prontas."
+              >
+                <Feather name="mic" size={25} color="#94A3B8" />
               </TouchableOpacity>
-
-              <TouchableOpacity style={styles.primaryAction} activeOpacity={0.8}>
-                <Feather name="mic" size={24} color={BRANCO} />
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.secondaryAction} activeOpacity={0.8}>
-                <Feather name="trash-2" size={20} color={BLUE} />
-                <Text style={styles.secondaryActionText}>Limpar</Text>
-              </TouchableOpacity>
+              <Text style={styles.primaryActionLabel}>Iniciar tradução</Text>
+              <Text style={styles.primaryActionHint}>
+                Disponível quando as duas luvas estiverem prontas.
+              </Text>
             </View>
-            <Text style={styles.primaryActionLabel}>Iniciar tradução</Text>
           </AppGlassCard>
 
           <AppGlassCard style={styles.historyCard}>
-            <Text style={styles.cardTitle}>Histórico desta sessão</Text>
-            <Text style={styles.historyEmpty}>Nenhuma frase detectada nesta sessão.</Text>
+            <View style={styles.cardHeading}>
+              <View style={styles.smallIconCircle}>
+                <Feather name="clock" size={19} color={BLUE} />
+              </View>
+              <Text style={styles.cardTitle}>Histórico desta sessão</Text>
+            </View>
+            <View style={styles.emptyHistory}>
+              <Feather name="file-text" size={20} color="#94A3B8" />
+              <Text style={styles.historyEmpty}>Nenhuma frase detectada nesta sessão.</Text>
+            </View>
           </AppGlassCard>
 
           <AppGlassCard style={styles.infoCard}>
-            <Feather name="info" size={20} color={BLUE} />
-            <View style={styles.infoTextContainer}>
-              <Text style={styles.infoTitle}>Tradução em breve</Text>
+            <View style={styles.smallIconCircle}>
+              <Feather name="info" size={19} color={BLUE} />
+            </View>
+            <View style={styles.infoCopy}>
+              <Text style={styles.infoTitle}>Integração futura</Text>
               <Text style={styles.infoDescription}>
-                A tradução em tempo real será ativada quando as luvas estiverem conectadas.
+                Esta tela está preparada para receber os dados das luvas e o resultado do reconhecimento em uma próxima etapa.
               </Text>
             </View>
           </AppGlassCard>
@@ -96,57 +185,118 @@ export default function TranslateScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: BRANCO,
+    backgroundColor: BACKGROUND,
   },
   container: {
     flex: 1,
   },
   header: {
     paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 16,
+    paddingTop: 18,
+    paddingBottom: 14,
+    backgroundColor: BACKGROUND,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontFamily: 'PoppinsM',
     color: TEXT,
   },
+  headerSubtitle: {
+    marginTop: 2,
+    fontSize: 13,
+    fontFamily: 'Poppins',
+    color: MUTED,
+  },
+  scroll: {
+    flex: 1,
+    overflow: 'hidden',
+  },
   scrollContent: {
+    paddingTop: 8,
     paddingHorizontal: 24,
-    gap: 20,
+    gap: 18,
   },
   statusCard: {
+    padding: 18,
+    gap: 16,
+  },
+  statusHeading: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 18,
+    gap: 12,
   },
   statusIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EAF2FF',
+    backgroundColor: '#E8F1FF',
   },
-  statusTextContainer: {
+  statusCopy: {
     flex: 1,
-    marginLeft: 14,
+    gap: 2,
   },
   statusTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: 'PoppinsM',
     color: TEXT,
   },
   statusSubtitle: {
-    marginTop: 3,
     fontSize: 12,
+    lineHeight: 18,
     fontFamily: 'Poppins',
     color: MUTED,
   },
-  translationCard: {
+  gloveStatusGrid: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  gloveStatusItem: {
+    flex: 1,
+    minHeight: 64,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: '#F7FAFF',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  gloveStatusLabelRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+  },
+  gloveSide: {
+    flexShrink: 1,
+    fontSize: 12,
+    fontFamily: 'PoppinsM',
+    color: TEXT,
+  },
+  disconnectedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  disconnectedDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: DISCONNECTED,
+  },
+  disconnectedText: {
+    flexShrink: 1,
+    fontSize: 10,
+    fontFamily: 'Poppins',
+    color: DISCONNECTED,
+  },
+  translationCard: {
     paddingHorizontal: 20,
-    paddingVertical: 28,
+    paddingVertical: 24,
+    alignItems: 'center',
+    gap: 10,
   },
   signalIcon: {
     width: 72,
@@ -154,28 +304,37 @@ const styles = StyleSheet.create({
     borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EAF2FF',
+    backgroundColor: '#E8F1FF',
+    marginBottom: 4,
   },
   translationTitle: {
-    marginTop: 18,
-    fontSize: 20,
+    fontSize: 21,
+    lineHeight: 29,
     fontFamily: 'PoppinsM',
     color: TEXT,
     textAlign: 'center',
   },
   translationDescription: {
-    marginTop: 6,
     fontSize: 13,
+    lineHeight: 20,
     fontFamily: 'Poppins',
     color: MUTED,
     textAlign: 'center',
   },
   detectedPhrase: {
     width: '100%',
-    marginTop: 24,
+    marginTop: 12,
     padding: 16,
-    borderRadius: 18,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#D8E4F5',
     backgroundColor: '#EEF4FC',
+    gap: 8,
+  },
+  detectedHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
   },
   detectedLabel: {
     fontSize: 10,
@@ -184,80 +343,107 @@ const styles = StyleSheet.create({
     letterSpacing: 0.7,
   },
   detectedText: {
-    marginTop: 6,
     fontSize: 15,
+    lineHeight: 22,
     fontFamily: 'Poppins',
     color: MUTED,
   },
   confidenceRow: {
+    marginTop: 2,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 14,
+    gap: 7,
+  },
+  confidenceIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#E8F1FF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   confidenceText: {
     fontSize: 12,
     fontFamily: 'Poppins',
     color: MUTED,
   },
-  translationActions: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 24,
-  },
-  secondaryAction: {
-    width: 72,
+  primaryActionArea: {
+    marginTop: 8,
     alignItems: 'center',
     gap: 6,
   },
-  secondaryActionText: {
-    fontSize: 11,
-    fontFamily: 'Poppins',
-    color: MUTED,
-  },
-  primaryAction: {
+  primaryActionDisabled: {
     width: 64,
     height: 64,
     borderRadius: 32,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: '#E9EEF6',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: BLUE,
-    shadowColor: BLUE,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.28,
-    shadowRadius: 12,
-    elevation: 8,
   },
   primaryActionLabel: {
-    marginTop: 8,
     fontSize: 12,
     fontFamily: 'PoppinsM',
-    color: BLUE,
+    color: '#94A3B8',
+  },
+  primaryActionHint: {
+    maxWidth: 240,
+    fontSize: 10,
+    lineHeight: 15,
+    fontFamily: 'Poppins',
+    color: MUTED,
+    textAlign: 'center',
   },
   historyCard: {
-    padding: 20,
+    padding: 18,
+    gap: 14,
+  },
+  cardHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  smallIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#E8F1FF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cardTitle: {
+    flex: 1,
     fontSize: 15,
     fontFamily: 'PoppinsM',
     color: TEXT,
   },
+  emptyHistory: {
+    minHeight: 58,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 18,
+    backgroundColor: '#EEF2F7',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   historyEmpty: {
-    marginTop: 8,
-    fontSize: 13,
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 18,
     fontFamily: 'Poppins',
     color: MUTED,
   },
   infoCard: {
+    padding: 18,
     flexDirection: 'row',
     alignItems: 'flex-start',
-    padding: 18,
+    gap: 12,
   },
-  infoTextContainer: {
+  infoCopy: {
     flex: 1,
-    marginLeft: 12,
+    gap: 3,
   },
   infoTitle: {
     fontSize: 14,
@@ -265,7 +451,6 @@ const styles = StyleSheet.create({
     color: TEXT,
   },
   infoDescription: {
-    marginTop: 4,
     fontSize: 12,
     lineHeight: 18,
     fontFamily: 'Poppins',
